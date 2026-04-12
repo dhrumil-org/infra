@@ -1,0 +1,13 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfplan
+.terraform.lock.hcl
+
+# Generated files
+modules/cicd/generated/
+
+# OS
+.DS_Store
+Thumbs.db
