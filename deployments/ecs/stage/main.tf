@@ -195,6 +195,30 @@ module "codedeploy" {
 }
 
 ################################################################################
+# CI/CD Pipeline — Triggered by ECR image push
+################################################################################
+
+module "cicd" {
+  source = "../../../modules/cicd"
+
+  env            = var.env
+  project        = var.project
+  aws_account_id = var.aws_account_id
+
+  ecr_repository_name = module.ecr.repository_name
+  ecr_repository_arn  = module.ecr.repository_arn
+  ecr_image_tag       = "latest"
+
+  codedeploy_app_name              = module.codedeploy.app_name
+  codedeploy_deployment_group_name = module.codedeploy.deployment_group_name
+
+  ecs_task_role_arns = [
+    module.ecs_service.task_execution_role_arn,
+    module.ecs_service.task_role_arn,
+  ]
+}
+
+################################################################################
 # Outputs
 ################################################################################
 
@@ -231,4 +255,9 @@ output "codedeploy_app_name" {
 output "codedeploy_deployment_group" {
   description = "CodeDeploy deployment group name"
   value       = module.codedeploy.deployment_group_name
+}
+
+output "pipeline_name" {
+  description = "CodePipeline name"
+  value       = module.cicd.pipeline_name
 }

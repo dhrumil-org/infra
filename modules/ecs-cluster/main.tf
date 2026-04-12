@@ -120,6 +120,7 @@ resource "aws_ecs_capacity_provider" "this" {
       minimum_scaling_step_size = 1
       status                    = "ENABLED"
       target_capacity           = 100
+      instance_warmup_period    = 300
     }
   }
 
