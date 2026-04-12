@@ -251,6 +251,19 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = var.ecr_repository_arn
       },
       {
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey"
+        ]
+        Resource = "*"
+      },
+      {
         Effect = "Allow"
         Action = [
           "codedeploy:CreateDeployment",
