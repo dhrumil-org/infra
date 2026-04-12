@@ -15,7 +15,7 @@ asg_min_size         = 1
 asg_max_size         = 3
 asg_desired_capacity = 1
 container_image      = "nginx:latest"
-container_port       = 80
+container_port       = 8080
 task_cpu             = 512
 task_memory          = 1024
 

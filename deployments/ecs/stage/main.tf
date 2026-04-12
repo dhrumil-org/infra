@@ -204,6 +204,7 @@ module "cicd" {
   env            = var.env
   project        = var.project
   aws_account_id = var.aws_account_id
+  aws_region     = var.aws_region
 
   ecr_repository_name = module.ecr.repository_name
   ecr_repository_arn  = module.ecr.repository_arn
@@ -216,6 +217,16 @@ module "cicd" {
     module.ecs_service.task_execution_role_arn,
     module.ecs_service.task_role_arn,
   ]
+
+  # Task definition template values
+  task_family        = "${var.project}-${var.env}-app"
+  task_cpu           = tostring(var.task_cpu)
+  task_memory        = tostring(var.task_memory)
+  execution_role_arn = module.ecs_service.task_execution_role_arn
+  task_role_arn      = module.ecs_service.task_role_arn
+  container_name     = "app"
+  container_port     = var.container_port
+  log_group          = module.ecs_service.log_group_name
 }
 
 ################################################################################

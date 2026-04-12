@@ -35,7 +35,58 @@ resource "aws_s3_bucket_public_access_block" "artifacts" {
 }
 
 ################################################################################
-# CodePipeline — ECR Source → CodeDeploy Deploy
+# Generate taskdef.json and appspec.yaml, zip and upload to S3
+################################################################################
+
+resource "local_file" "taskdef" {
+  content = templatefile("${path.module}/taskdef.json.tpl", {
+    task_family        = var.task_family
+    task_cpu           = var.task_cpu
+    task_memory        = var.task_memory
+    execution_role_arn = var.execution_role_arn
+    task_role_arn      = var.task_role_arn
+    container_name     = var.container_name
+    container_port     = var.container_port
+    log_group          = var.log_group
+    aws_region         = var.aws_region
+  })
+  filename = "${path.module}/generated/taskdef.json"
+}
+
+resource "local_file" "appspec" {
+  content = templatefile("${path.module}/appspec.yaml.tpl", {
+    container_name = var.container_name
+    container_port = var.container_port
+  })
+  filename = "${path.module}/generated/appspec.yaml"
+}
+
+data "archive_file" "config" {
+  type        = "zip"
+  output_path = "${path.module}/generated/config.zip"
+
+  source {
+    content  = local_file.taskdef.content
+    filename = "taskdef.json"
+  }
+
+  source {
+    content  = local_file.appspec.content
+    filename = "appspec.yaml"
+  }
+}
+
+resource "aws_s3_object" "config" {
+  bucket = aws_s3_bucket.artifacts.id
+  key    = "config/config.zip"
+  source = data.archive_file.config.output_path
+  etag   = data.archive_file.config.output_md5
+
+  depends_on = [data.archive_file.config]
+}
+
+################################################################################
+# CodePipeline — ECR Source + S3 Config → CodeDeploy Deploy
 ################################################################################
 
 resource "aws_codepipeline" "this" {
@@ -48,7 +99,7 @@ resource "aws_codepipeline" "this" {
   }
 
   ############################################################################
-  # Stage 1: Source — Triggers on ECR image push
+  # Stage 1: Source — ECR image + S3 config files
   ############################################################################
   stage {
     name = "Source"
@@ -59,11 +110,28 @@ resource "aws_codepipeline" "this" {
       owner            = "AWS"
       provider         = "ECR"
       version          = "1"
-      output_artifacts = ["source_output"]
+      output_artifacts = ["ecr_output"]
+      run_order        = 1
 
       configuration = {
         RepositoryName = var.ecr_repository_name
         ImageTag       = var.ecr_image_tag
+      }
+    }
+
+    action {
+      name             = "Config-Files"
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "S3"
+      version          = "1"
+      output_artifacts = ["config_output"]
+      run_order        = 1
+
+      configuration = {
+        S3Bucket             = aws_s3_bucket.artifacts.bucket
+        S3ObjectKey          = "config/config.zip"
+        PollForSourceChanges = "false"
       }
     }
   }
@@ -80,16 +148,16 @@ resource "aws_codepipeline" "this" {
       owner           = "AWS"
       provider        = "CodeDeployToECS"
       version         = "1"
-      input_artifacts = ["source_output"]
+      input_artifacts = ["config_output", "ecr_output"]
 
       configuration = {
         ApplicationName                = var.codedeploy_app_name
         DeploymentGroupName            = var.codedeploy_deployment_group_name
-        TaskDefinitionTemplateArtifact = "source_output"
+        TaskDefinitionTemplateArtifact = "config_output"
         TaskDefinitionTemplatePath     = "taskdef.json"
-        AppSpecTemplateArtifact        = "source_output"
+        AppSpecTemplateArtifact        = "config_output"
         AppSpecTemplatePath            = "appspec.yaml"
-        Image1ArtifactName             = "source_output"
+        Image1ArtifactName             = "ecr_output"
         Image1ContainerName            = "IMAGE1_NAME"
       }
     }
