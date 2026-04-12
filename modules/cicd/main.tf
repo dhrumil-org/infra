@@ -21,7 +21,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "aws:kms"
+      sse_algorithm = "AES256"
     }
   }
 }
@@ -234,7 +234,10 @@ resource "aws_iam_role_policy" "codepipeline" {
           "s3:GetObject",
           "s3:GetObjectVersion",
           "s3:GetBucketVersioning",
-          "s3:PutObject"
+          "s3:GetBucketLocation",
+          "s3:ListBucket",
+          "s3:PutObject",
+          "s3:PutObjectAcl"
         ]
         Resource = [
           aws_s3_bucket.artifacts.arn,
