@@ -18,3 +18,8 @@ variable "container_port" {
   type        = number
   default     = 8080
 }
+
+variable "vpc_cidr" {
+  description = "VPC CIDR block (for internal egress rules like RDS)"
+  type        = string
+}

@@ -105,3 +105,12 @@ resource "aws_vpc_security_group_egress_rule" "ecs_dns_udp" {
   ip_protocol       = "udp"
   cidr_ipv4         = "0.0.0.0/0"
 }
+
+resource "aws_vpc_security_group_egress_rule" "ecs_to_rds" {
+  security_group_id = aws_security_group.ecs.id
+  description       = "Allow outbound to RDS PostgreSQL"
+  from_port         = 5432
+  to_port           = 5432
+  ip_protocol       = "tcp"
+  cidr_ipv4         = var.vpc_cidr
+}
