@@ -21,8 +21,9 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm = "aws:kms"
     }
+    bucket_key_enabled = true
   }
 }
 
@@ -78,12 +79,16 @@ data "archive_file" "config" {
 }
 
 resource "aws_s3_object" "config" {
-  bucket = aws_s3_bucket.artifacts.id
-  key    = "config/config.zip"
-  source = data.archive_file.config.output_path
-  etag   = data.archive_file.config.output_md5
+  bucket                 = aws_s3_bucket.artifacts.id
+  key                    = "config/config.zip"
+  source                 = data.archive_file.config.output_path
+  etag                   = data.archive_file.config.output_md5
+  server_side_encryption = "aws:kms"
 
-  depends_on = [data.archive_file.config]
+  depends_on = [
+    data.archive_file.config,
+    aws_s3_bucket_server_side_encryption_configuration.artifacts,
+  ]
 }
 
 ################################################################################
