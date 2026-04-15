@@ -111,6 +111,38 @@ resource "aws_secretsmanager_secret_version" "db" {
 }
 
 ################################################################################
+# Secrets Manager — App-facing secret (schema expected by Spring Boot app)
+# Keys: DB_USERNAME, DATASOURCE_URL — read by RdsIamDataSourceConfig
+################################################################################
+
+resource "aws_secretsmanager_secret" "app_db" {
+  count = var.create_app_secret ? 1 : 0
+
+  name                    = var.app_secret_name
+  description             = "DB credentials for ${var.project}-${var.env} application (IAM auth schema)"
+  kms_key_id              = var.secrets_kms_key_arn
+  recovery_window_in_days = 7
+
+  tags = {
+    Name = "${var.project}-${var.env}-app-db-secret"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "app_db" {
+  count = var.create_app_secret ? 1 : 0
+
+  secret_id = aws_secretsmanager_secret.app_db[0].id
+  secret_string = jsonencode({
+    DB_USERNAME   = var.app_db_username
+    DATASOURCE_URL = "jdbc:postgresql://${aws_db_instance.this.address}:${aws_db_instance.this.port}/${var.db_name}"
+  })
+
+  lifecycle {
+    ignore_changes = [secret_string]
+  }
+}
+
+################################################################################
 # RDS Instance — PostgreSQL 16, HIPAA compliant
 ################################################################################
 
@@ -231,7 +263,10 @@ resource "aws_iam_policy" "db_access" {
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ]
-        Resource = aws_secretsmanager_secret.db.arn
+        Resource = compact([
+          aws_secretsmanager_secret.db.arn,
+          var.create_app_secret ? aws_secretsmanager_secret.app_db[0].arn : "",
+        ])
       },
       {
         Sid    = "DecryptSecret"

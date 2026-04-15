@@ -40,15 +40,16 @@ resource "aws_s3_bucket_public_access_block" "artifacts" {
 
 resource "local_file" "taskdef" {
   content = templatefile("${path.module}/taskdef.json.tpl", {
-    task_family        = var.task_family
-    task_cpu           = var.task_cpu
-    task_memory        = var.task_memory
-    execution_role_arn = var.execution_role_arn
-    task_role_arn      = var.task_role_arn
-    container_name     = var.container_name
-    container_port     = var.container_port
-    log_group          = var.log_group
-    aws_region         = var.aws_region
+    task_family           = var.task_family
+    task_cpu              = var.task_cpu
+    task_memory           = var.task_memory
+    execution_role_arn    = var.execution_role_arn
+    task_role_arn         = var.task_role_arn
+    container_name        = var.container_name
+    container_port        = var.container_port
+    log_group             = var.log_group
+    aws_region            = var.aws_region
+    environment_vars_json = jsonencode(var.environment_variables)
   })
   filename = "${path.module}/generated/taskdef.json"
 }

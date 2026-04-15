@@ -120,3 +120,25 @@ variable "apply_immediately" {
   type        = bool
   default     = false
 }
+
+################################################################################
+# App-facing secret (custom schema for Spring Boot RDS IAM auth)
+################################################################################
+
+variable "create_app_secret" {
+  description = "Whether to create a separate secret with app-specific schema (DB_USERNAME, DATASOURCE_URL)"
+  type        = bool
+  default     = false
+}
+
+variable "app_secret_name" {
+  description = "Name of the app-facing Secrets Manager secret (e.g. vocuone/stage/db)"
+  type        = string
+  default     = ""
+}
+
+variable "app_db_username" {
+  description = "Application database username (IAM-authenticated, created manually via SQL)"
+  type        = string
+  default     = "vocanote_service_user"
+}

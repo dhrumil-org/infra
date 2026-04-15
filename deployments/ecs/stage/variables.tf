@@ -163,3 +163,15 @@ variable "db_apply_immediately" {
   type        = bool
   default     = true
 }
+
+variable "app_db_secret_name" {
+  description = "Name of app-facing DB secret (Spring Boot reads from here)"
+  type        = string
+  default     = "vocuone/stage/db"
+}
+
+variable "app_db_username" {
+  description = "Database username the Spring Boot app authenticates as (IAM auth)"
+  type        = string
+  default     = "vocanote_service_user"
+}

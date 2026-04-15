@@ -92,3 +92,12 @@ variable "log_group" {
   description = "CloudWatch log group name"
   type        = string
 }
+
+variable "environment_variables" {
+  description = "Environment variables to pass to the container in the task definition"
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}

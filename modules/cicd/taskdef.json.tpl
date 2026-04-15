@@ -20,6 +20,7 @@
           "protocol": "tcp"
         }
       ],
+      "environment": ${environment_vars_json},
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

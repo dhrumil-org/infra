@@ -34,3 +34,7 @@ db_backup_retention_period = 7
 db_deletion_protection     = false
 db_skip_final_snapshot     = true
 db_apply_immediately       = true
+
+# App-facing DB secret (matches what Spring Boot reads)
+app_db_secret_name = "vocuone/stage/db"
+app_db_username    = "vocanote_service_user"

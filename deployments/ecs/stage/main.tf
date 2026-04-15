@@ -1,6 +1,32 @@
 data "aws_caller_identity" "current" {}
 
 ################################################################################
+# Shared env vars passed to both the initial ECS task def and CodePipeline
+# redeployments via taskdef.json template
+################################################################################
+
+locals {
+  app_environment_variables = [
+    {
+      name  = "SPRING_PROFILES_ACTIVE"
+      value = var.env
+    },
+    {
+      name  = "aws.region"
+      value = var.aws_region
+    },
+    {
+      name  = "aws.secrets.db-secret-name"
+      value = var.app_db_secret_name
+    },
+    {
+      name  = "AWS_REGION"
+      value = var.aws_region
+    },
+  ]
+}
+
+################################################################################
 # KMS Keys — Encryption at rest (HIPAA)
 ################################################################################
 
@@ -209,6 +235,9 @@ module "ecs_service" {
   desired_count          = 1
   log_kms_key_arn        = module.kms.key_arns["logs"]
 
+  # Env vars the Spring Boot app reads at startup (shared with CodePipeline)
+  environment_variables = local.app_environment_variables
+
   # Auto Scaling
   autoscaling_min_capacity = 1
   autoscaling_max_capacity = 4
@@ -256,6 +285,11 @@ module "rds" {
   deletion_protection = var.db_deletion_protection
   skip_final_snapshot = var.db_skip_final_snapshot
   apply_immediately   = var.db_apply_immediately
+
+  # App-facing secret (matches Spring Boot RdsIamDataSourceConfig expectations)
+  create_app_secret = true
+  app_secret_name   = var.app_db_secret_name
+  app_db_username   = var.app_db_username
 }
 
 ################################################################################
@@ -310,15 +344,16 @@ module "cicd" {
     module.ecs_service.task_role_arn,
   ]
 
-  # Task definition template values
-  task_family        = "${var.project}-${var.env}-app"
-  task_cpu           = tostring(var.task_cpu)
-  task_memory        = tostring(var.task_memory)
-  execution_role_arn = module.ecs_service.task_execution_role_arn
-  task_role_arn      = module.ecs_service.task_role_arn
-  container_name     = "app"
-  container_port     = var.container_port
-  log_group          = module.ecs_service.log_group_name
+  # Task definition template values (same env vars as initial ECS task def)
+  task_family           = "${var.project}-${var.env}-app"
+  task_cpu              = tostring(var.task_cpu)
+  task_memory           = tostring(var.task_memory)
+  execution_role_arn    = module.ecs_service.task_execution_role_arn
+  task_role_arn         = module.ecs_service.task_role_arn
+  container_name        = "app"
+  container_port        = var.container_port
+  log_group             = module.ecs_service.log_group_name
+  environment_variables = local.app_environment_variables
 }
 
 ################################################################################
@@ -397,6 +432,11 @@ output "rds_secret_arn" {
 output "rds_secret_name" {
   description = "Name of Secrets Manager secret (for AWS CLI lookup)"
   value       = module.rds.db_secret_name
+}
+
+output "app_db_secret_name" {
+  description = "App-facing DB secret (Spring Boot reads from here)"
+  value       = module.rds.app_db_secret_name
 }
 
 output "db_access_policy_arn" {

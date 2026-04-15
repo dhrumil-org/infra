@@ -51,6 +51,16 @@ output "db_secret_name" {
   value       = aws_secretsmanager_secret.db.name
 }
 
+output "app_db_secret_arn" {
+  description = "ARN of app-facing DB secret (Spring Boot IAM auth schema)"
+  value       = var.create_app_secret ? aws_secretsmanager_secret.app_db[0].arn : ""
+}
+
+output "app_db_secret_name" {
+  description = "Name of app-facing DB secret"
+  value       = var.create_app_secret ? aws_secretsmanager_secret.app_db[0].name : ""
+}
+
 ################################################################################
 # Security Group
 ################################################################################
