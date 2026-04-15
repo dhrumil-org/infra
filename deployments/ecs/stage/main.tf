@@ -51,6 +51,50 @@ module "kms" {
     ecr = {
       description = "KMS key for ECR image encryption"
     }
+    rds = {
+      description = "KMS key for RDS storage encryption"
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Sid       = "AllowKeyManagement"
+            Effect    = "Allow"
+            Principal = { AWS = "arn:aws:iam::${var.aws_account_id}:root" }
+            Action    = "kms:*"
+            Resource  = "*"
+          },
+          {
+            Sid       = "AllowRDS"
+            Effect    = "Allow"
+            Principal = { Service = "rds.amazonaws.com" }
+            Action    = ["kms:Decrypt", "kms:GenerateDataKey", "kms:CreateGrant", "kms:DescribeKey"]
+            Resource  = "*"
+          }
+        ]
+      })
+    }
+    secrets = {
+      description = "KMS key for Secrets Manager encryption"
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Sid       = "AllowKeyManagement"
+            Effect    = "Allow"
+            Principal = { AWS = "arn:aws:iam::${var.aws_account_id}:root" }
+            Action    = "kms:*"
+            Resource  = "*"
+          },
+          {
+            Sid       = "AllowSecretsManager"
+            Effect    = "Allow"
+            Principal = { Service = "secretsmanager.amazonaws.com" }
+            Action    = ["kms:Decrypt", "kms:GenerateDataKey", "kms:CreateGrant", "kms:DescribeKey"]
+            Resource  = "*"
+          }
+        ]
+      })
+    }
   }
 }
 
@@ -176,6 +220,53 @@ module "ecs_service" {
 }
 
 ################################################################################
+# RDS — PostgreSQL database in private subnet
+################################################################################
+
+module "rds" {
+  source = "../../../modules/rds"
+
+  env            = var.env
+  project        = var.project
+  aws_region     = var.aws_region
+  aws_account_id = var.aws_account_id
+
+  # Network
+  vpc_id                = module.vpc.vpc_id
+  private_subnet_ids    = module.vpc.private_subnet_ids
+  ecs_security_group_id = module.security_groups.ecs_security_group_id
+
+  # Database config
+  engine_version    = var.db_engine_version
+  instance_class    = var.db_instance_class
+  allocated_storage = var.db_allocated_storage
+  db_name           = var.db_name
+  master_username   = var.db_master_username
+
+  # HA and backups
+  multi_az                = var.db_multi_az
+  backup_retention_period = var.db_backup_retention_period
+
+  # Encryption
+  rds_kms_key_arn     = module.kms.key_arns["rds"]
+  secrets_kms_key_arn = module.kms.key_arns["secrets"]
+
+  # Deletion protection (false for stage, true for prod)
+  deletion_protection = var.db_deletion_protection
+  skip_final_snapshot = var.db_skip_final_snapshot
+  apply_immediately   = var.db_apply_immediately
+}
+
+################################################################################
+# Attach DB access policy to ECS task role so the app can read DB credentials
+################################################################################
+
+resource "aws_iam_role_policy_attachment" "ecs_task_db_access" {
+  role       = module.ecs_service.task_role_name
+  policy_arn = module.rds.db_access_policy_arn
+}
+
+################################################################################
 # CodeDeploy — Canary Deployments
 ################################################################################
 
@@ -271,4 +362,48 @@ output "codedeploy_deployment_group" {
 output "pipeline_name" {
   description = "CodePipeline name"
   value       = module.cicd.pipeline_name
+}
+
+################################################################################
+# RDS Outputs
+################################################################################
+
+output "rds_endpoint" {
+  description = "RDS instance endpoint (host:port)"
+  value       = module.rds.db_instance_endpoint
+}
+
+output "rds_address" {
+  description = "RDS instance hostname"
+  value       = module.rds.db_instance_address
+}
+
+output "rds_port" {
+  description = "RDS instance port"
+  value       = module.rds.db_instance_port
+}
+
+output "rds_db_name" {
+  description = "Initial database name"
+  value       = module.rds.db_name
+}
+
+output "rds_secret_arn" {
+  description = "ARN of Secrets Manager secret with DB credentials"
+  value       = module.rds.db_secret_arn
+}
+
+output "rds_secret_name" {
+  description = "Name of Secrets Manager secret (for AWS CLI lookup)"
+  value       = module.rds.db_secret_name
+}
+
+output "db_access_policy_arn" {
+  description = "IAM policy ARN for DB access — attach to IAM users"
+  value       = module.rds.db_access_policy_arn
+}
+
+output "db_access_role_arn" {
+  description = "IAM role ARN for DB access — can be assumed by users"
+  value       = module.rds.db_access_role_arn
 }

@@ -22,3 +22,15 @@ task_memory          = 1024
 # ALB
 acm_certificate_arn = "arn:aws:acm:us-east-1:499290259511:certificate/76546c9c-daec-44d0-9544-a2ff36dac831"
 health_check_path   = "/"
+
+# RDS
+db_engine_version          = "16.4"
+db_instance_class          = "db.t3.micro"
+db_allocated_storage       = 20
+db_name                    = "appdb"
+db_master_username         = "dbadmin"
+db_multi_az                = false
+db_backup_retention_period = 7
+db_deletion_protection     = false
+db_skip_final_snapshot     = true
+db_apply_immediately       = true

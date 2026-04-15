@@ -99,3 +99,67 @@ variable "health_check_path" {
   type        = string
   default     = "/"
 }
+
+################################################################################
+# RDS Variables
+################################################################################
+
+variable "db_engine_version" {
+  description = "PostgreSQL engine version"
+  type        = string
+  default     = "16.4"
+}
+
+variable "db_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t3.micro"
+}
+
+variable "db_allocated_storage" {
+  description = "Initial allocated storage in GB"
+  type        = number
+  default     = 20
+}
+
+variable "db_name" {
+  description = "Initial database name"
+  type        = string
+  default     = "appdb"
+}
+
+variable "db_master_username" {
+  description = "Master username for the database"
+  type        = string
+  default     = "dbadmin"
+}
+
+variable "db_multi_az" {
+  description = "Enable Multi-AZ deployment (true for prod)"
+  type        = bool
+  default     = false
+}
+
+variable "db_backup_retention_period" {
+  description = "Days to retain automated backups"
+  type        = number
+  default     = 7
+}
+
+variable "db_deletion_protection" {
+  description = "Prevent accidental deletion"
+  type        = bool
+  default     = false
+}
+
+variable "db_skip_final_snapshot" {
+  description = "Skip final snapshot on deletion"
+  type        = bool
+  default     = true
+}
+
+variable "db_apply_immediately" {
+  description = "Apply RDS changes immediately"
+  type        = bool
+  default     = true
+}
