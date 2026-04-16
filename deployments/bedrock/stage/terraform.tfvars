@@ -32,3 +32,11 @@ parsing_model_arn       = "arn:aws:bedrock:us-east-1::foundation-model/anthropic
 # KMS — leave empty to use SSE-S3 (AES256)
 # Set to a KMS key ARN for HIPAA CMK encryption
 kms_key_arn = ""
+
+# Bedrock Agent
+agent_name             = "assistant"
+agent_description      = "VocaNote stage AI assistant"
+agent_foundation_model = "us.anthropic.claude-sonnet-4-5:0"
+
+# Copy the exact instruction text from your dev agent (Agent builder → Instructions field)
+agent_instruction = "You are a helpful VocaNote AI assistant. Help users with their questions."

@@ -130,3 +130,42 @@ output "kb_access_policy_arn" {
   description = "IAM policy ARN attached to ECS task role — grants app access to Retrieve/RetrieveAndGenerate"
   value       = module.bedrock_kb.kb_access_policy_arn
 }
+
+################################################################################
+# Bedrock Agent — sits on top of the KB, orchestrates LLM responses
+################################################################################
+
+module "bedrock_agent" {
+  source = "../../../modules/bedrock-agent"
+
+  env            = var.env
+  project        = var.project
+  aws_region     = var.aws_region
+  aws_account_id = var.aws_account_id
+
+  agent_name        = var.agent_name
+  agent_description = var.agent_description
+  foundation_model  = var.agent_foundation_model
+  instruction       = var.agent_instruction
+
+  # Link to the KB created above
+  knowledge_base_id          = module.bedrock_kb.knowledge_base_id
+  knowledge_base_description = "Use this knowledge base to answer questions about VocaNote"
+
+  alias_name = var.env
+}
+
+output "agent_id" {
+  description = "Bedrock Agent ID"
+  value       = module.bedrock_agent.agent_id
+}
+
+output "agent_alias_id" {
+  description = "Agent alias ID — pass this to InvokeAgent in your Spring Boot app"
+  value       = module.bedrock_agent.agent_alias_id
+}
+
+output "agent_alias_arn" {
+  description = "Agent alias ARN"
+  value       = module.bedrock_agent.agent_alias_arn
+}

@@ -103,3 +103,30 @@ variable "kms_key_arn" {
   type        = string
   default     = ""
 }
+
+################################################################################
+# Bedrock Agent
+################################################################################
+
+variable "agent_name" {
+  description = "Agent name suffix"
+  type        = string
+  default     = "assistant"
+}
+
+variable "agent_description" {
+  description = "Agent description"
+  type        = string
+  default     = "VocaNote AI assistant"
+}
+
+variable "agent_foundation_model" {
+  description = "Foundation model ID for the agent"
+  type        = string
+  default     = "us.anthropic.claude-sonnet-4-5:0"
+}
+
+variable "agent_instruction" {
+  description = "Instructions that define the agent behaviour"
+  type        = string
+}
