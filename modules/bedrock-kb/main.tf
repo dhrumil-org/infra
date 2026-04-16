@@ -286,6 +286,18 @@ resource "aws_bedrockagent_knowledge_base" "this" {
 
     vector_knowledge_base_configuration {
       embedding_model_arn = var.embedding_model_arn
+
+      # Required when using multimodal embedding models (Nova Multimodal)
+      # Bedrock stores extracted images/figures here during ingestion
+      supplemental_data_storage_configuration {
+        storage_location {
+          type = "S3"
+
+          s3_location {
+            uri = "s3://${local.multimodal_bucket_name}/"
+          }
+        }
+      }
     }
   }
 
