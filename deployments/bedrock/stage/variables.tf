@@ -53,9 +53,9 @@ variable "vector_bucket_name" {
 }
 
 variable "vector_index_name" {
-  description = "S3 Vectors index name"
+  description = "S3 Vectors index name. Empty = auto-derive from env ({project}-{env}-kb-index)."
   type        = string
-  default     = "vocanote-kb-index"
+  default     = ""
 }
 
 # Primary data source

@@ -1,8 +1,10 @@
 locals {
-  name_prefix = "${var.project}-${var.env}"
+  name_prefix  = "${var.project}-${var.env}"
   kb_full_name = "${local.name_prefix}-${var.kb_name}-kb"
 
+  # All resource names derive from name_prefix so stage → vocanote-stage-* and prod → vocanote-prod-*
   vector_bucket_name = var.vector_bucket_name != "" ? var.vector_bucket_name : "${local.name_prefix}-s3-vector-store"
+  vector_index_name  = var.vector_index_name != "" ? var.vector_index_name : "${local.name_prefix}-kb-index"
 
   # Resolve primary bucket
   primary_bucket_name = var.create_primary_bucket ? aws_s3_bucket.primary[0].bucket : var.existing_primary_bucket_name
@@ -249,7 +251,7 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
     ]
     resources = [
       "arn:aws:s3vectors:${var.aws_region}:${var.aws_account_id}:bucket/${local.vector_bucket_name}",
-      "arn:aws:s3vectors:${var.aws_region}:${var.aws_account_id}:bucket/${local.vector_bucket_name}/index/${var.vector_index_name}",
+      "arn:aws:s3vectors:${var.aws_region}:${var.aws_account_id}:bucket/${local.vector_bucket_name}/index/${local.vector_index_name}",
     ]
   }
 
@@ -286,7 +288,7 @@ resource "aws_s3vectors_vector_bucket" "kb" {
 
 resource "aws_s3vectors_index" "kb" {
   vector_bucket_name = aws_s3vectors_vector_bucket.kb.vector_bucket_name
-  index_name         = var.vector_index_name
+  index_name         = local.vector_index_name
 
   data_type  = "float32"
   dimension  = var.vector_dimensions

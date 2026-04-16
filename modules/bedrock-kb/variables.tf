@@ -59,9 +59,9 @@ variable "vector_bucket_name" {
 }
 
 variable "vector_index_name" {
-  description = "Name of the vector index inside the S3 Vectors bucket"
+  description = "Name of the vector index inside the S3 Vectors bucket. Defaults to {project}-{env}-kb-index."
   type        = string
-  default     = "vocanote-kb-index"
+  default     = ""
 }
 
 variable "vector_field" {
