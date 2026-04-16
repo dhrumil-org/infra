@@ -269,7 +269,7 @@ resource "aws_s3vectors_index" "kb" {
 
   data_type       = "float32"
   dimension       = var.vector_dimensions
-  distance_metric = "euclidean"
+  distance_metric = "cosine"
 }
 
 ################################################################################
