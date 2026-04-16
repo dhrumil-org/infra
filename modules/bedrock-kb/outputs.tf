@@ -23,18 +23,18 @@ output "secondary_data_source_id" {
   value       = var.enable_secondary_data_source ? aws_bedrockagent_data_source.secondary[0].data_source_id : null
 }
 
-output "opensearch_collection_arn" {
-  description = "OpenSearch Serverless collection ARN (vector store)"
-  value       = aws_opensearchserverless_collection.kb.arn
+output "vector_bucket_name" {
+  description = "S3 Vectors bucket name"
+  value       = aws_s3vectors_vector_bucket.kb.vector_bucket_name
 }
 
-output "opensearch_collection_endpoint" {
-  description = "OpenSearch Serverless collection endpoint"
-  value       = aws_opensearchserverless_collection.kb.collection_endpoint
+output "vector_index_arn" {
+  description = "S3 Vectors index ARN"
+  value       = aws_s3vectors_index.kb.arn
 }
 
 output "vector_index_name" {
-  description = "OpenSearch index name where vectors are stored"
+  description = "S3 Vectors index name"
   value       = local.vector_index_name
 }
 

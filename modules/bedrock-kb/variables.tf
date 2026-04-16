@@ -49,11 +49,17 @@ variable "vector_dimensions" {
 }
 
 ################################################################################
-# OpenSearch Serverless — Vector store
+# S3 Vectors — Vector store
 ################################################################################
 
+variable "vector_bucket_name" {
+  description = "S3 Vectors bucket name. Defaults to {project}-{env}-s3-vector-store."
+  type        = string
+  default     = ""
+}
+
 variable "vector_index_name" {
-  description = "OpenSearch index name for vectors. Defaults to {project}-{env}-kb-index."
+  description = "S3 Vectors index name. Defaults to {project}-{env}-kb-index."
   type        = string
   default     = ""
 }

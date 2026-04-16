@@ -36,8 +36,9 @@ module "bedrock_kb" {
   embedding_model_arn = var.embedding_model_arn
   vector_dimensions   = var.vector_dimensions
 
-  # OpenSearch Serverless vector store
-  vector_index_name = var.vector_index_name
+  # S3 Vectors vector store
+  vector_bucket_name = var.vector_bucket_name
+  vector_index_name  = var.vector_index_name
 
   # Primary data source — default parsing, fixed-size chunking
   create_primary_bucket      = true
@@ -123,9 +124,9 @@ output "multimodal_bucket_name" {
   value       = module.bedrock_kb.multimodal_bucket_name
 }
 
-output "opensearch_collection_endpoint" {
-  description = "OpenSearch Serverless collection endpoint (vector store)"
-  value       = module.bedrock_kb.opensearch_collection_endpoint
+output "vector_bucket_name" {
+  description = "S3 Vectors bucket name"
+  value       = module.bedrock_kb.vector_bucket_name
 }
 
 output "bedrock_kb_role_arn" {

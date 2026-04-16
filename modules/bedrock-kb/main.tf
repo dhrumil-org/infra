@@ -3,9 +3,8 @@ locals {
   kb_full_name = "${local.name_prefix}-${var.kb_name}-kb"
 
   # All resource names derive from name_prefix → stage: vocanote-stage-*, prod: vocanote-prod-*
-  # OpenSearch Serverless collection name max 32 chars — keep suffix short
-  collection_name   = "${local.name_prefix}-kb"
-  vector_index_name = var.vector_index_name != "" ? var.vector_index_name : "${local.name_prefix}-kb-index"
+  vector_bucket_name = var.vector_bucket_name != "" ? var.vector_bucket_name : "${local.name_prefix}-s3-vector-store"
+  vector_index_name  = var.vector_index_name != "" ? var.vector_index_name : "${local.name_prefix}-kb-index"
 
   # Resolve primary bucket
   primary_bucket_name = var.create_primary_bucket ? aws_s3_bucket.primary[0].bucket : var.existing_primary_bucket_name
@@ -174,7 +173,6 @@ resource "aws_iam_role" "bedrock_kb" {
 }
 
 data "aws_iam_policy_document" "bedrock_kb_policy" {
-  # Invoke embedding model
   statement {
     sid       = "AllowEmbeddingModelInvoke"
     effect    = "Allow"
@@ -182,7 +180,6 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
     resources = [var.embedding_model_arn]
   }
 
-  # Invoke parsing model (secondary data source only)
   dynamic "statement" {
     for_each = var.enable_secondary_data_source ? [1] : []
     content {
@@ -193,7 +190,6 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
     }
   }
 
-  # Read all S3 data source buckets
   statement {
     sid    = "AllowS3DataSourceRead"
     effect = "Allow"
@@ -206,7 +202,6 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
     ])
   }
 
-  # Write multimodal storage (extracted images/figures)
   statement {
     sid    = "AllowMultimodalStorageWrite"
     effect = "Allow"
@@ -221,15 +216,24 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
     ]
   }
 
-  # OpenSearch Serverless — write and query the vector index
+  # S3 Vectors — read/write the vector index
   statement {
-    sid       = "AllowOpenSearchAccess"
-    effect    = "Allow"
-    actions   = ["aoss:APIAccessAll"]
-    resources = ["arn:aws:aoss:${var.aws_region}:${var.aws_account_id}:collection/*"]
+    sid    = "AllowS3VectorsAccess"
+    effect = "Allow"
+    actions = [
+      "s3vectors:GetIndex",
+      "s3vectors:ListIndexes",
+      "s3vectors:PutVectors",
+      "s3vectors:GetVectors",
+      "s3vectors:DeleteVectors",
+      "s3vectors:QueryVectors",
+    ]
+    resources = [
+      "arn:aws:s3vectors:${var.aws_region}:${var.aws_account_id}:bucket/${local.vector_bucket_name}",
+      "arn:aws:s3vectors:${var.aws_region}:${var.aws_account_id}:bucket/${local.vector_bucket_name}/index/${local.vector_index_name}",
+    ]
   }
 
-  # KMS decryption (only if a KMS key is provided)
   dynamic "statement" {
     for_each = var.kms_key_arn != "" ? [1] : []
     content {
@@ -252,99 +256,20 @@ resource "aws_iam_role_policy" "bedrock_kb" {
 }
 
 ################################################################################
-# OpenSearch Serverless — Vector store
-# (The Terraform AWS provider does not yet support aws_s3vectors_* resources)
+# S3 Vectors — Vector bucket + index
 ################################################################################
 
-resource "aws_opensearchserverless_security_policy" "encryption" {
-  name        = "${local.collection_name}-enc"
-  type        = "encryption"
-  description = "Encryption policy for ${local.collection_name}"
-
-  policy = jsonencode({
-    Rules = [
-      {
-        ResourceType = "collection"
-        Resource     = ["collection/${local.collection_name}"]
-      }
-    ]
-    AWSOwnedKey = true
-  })
+resource "aws_s3vectors_vector_bucket" "kb" {
+  vector_bucket_name = local.vector_bucket_name
 }
 
-resource "aws_opensearchserverless_security_policy" "network" {
-  name        = "${local.collection_name}-net"
-  type        = "network"
-  description = "Network policy for ${local.collection_name}"
+resource "aws_s3vectors_index" "kb" {
+  vector_bucket_name = aws_s3vectors_vector_bucket.kb.vector_bucket_name
+  index_name         = local.vector_index_name
 
-  policy = jsonencode([
-    {
-      Rules = [
-        {
-          ResourceType = "collection"
-          Resource     = ["collection/${local.collection_name}"]
-        },
-        {
-          ResourceType = "dashboard"
-          Resource     = ["collection/${local.collection_name}"]
-        }
-      ]
-      AllowFromPublic = true
-    }
-  ])
-}
-
-resource "aws_opensearchserverless_access_policy" "kb" {
-  name        = "${local.collection_name}-access"
-  type        = "data"
-  description = "Data access for Bedrock KB role on ${local.collection_name}"
-
-  policy = jsonencode([
-    {
-      Rules = [
-        {
-          ResourceType = "index"
-          Resource     = ["index/${local.collection_name}/*"]
-          Permission = [
-            "aoss:CreateIndex",
-            "aoss:DeleteIndex",
-            "aoss:UpdateIndex",
-            "aoss:DescribeIndex",
-            "aoss:ReadDocument",
-            "aoss:WriteDocument",
-          ]
-        },
-        {
-          ResourceType = "collection"
-          Resource     = ["collection/${local.collection_name}"]
-          Permission = [
-            "aoss:CreateCollectionItems",
-            "aoss:DeleteCollectionItems",
-            "aoss:UpdateCollectionItems",
-            "aoss:DescribeCollectionItems",
-          ]
-        }
-      ]
-      Principal = [
-        aws_iam_role.bedrock_kb.arn,
-        "arn:aws:iam::${var.aws_account_id}:root",
-      ]
-    }
-  ])
-}
-
-resource "aws_opensearchserverless_collection" "kb" {
-  name        = local.collection_name
-  type        = "VECTORSEARCH"
-  description = "Vector store for ${local.kb_full_name}"
-
-  depends_on = [
-    aws_opensearchserverless_security_policy.encryption,
-    aws_opensearchserverless_security_policy.network,
-    aws_opensearchserverless_access_policy.kb,
-  ]
-
-  tags = { Name = local.collection_name }
+  data_type = "float32"
+  dimension = var.vector_dimensions
+  metric    = "cosine"
 }
 
 ################################################################################
@@ -365,11 +290,10 @@ resource "aws_bedrockagent_knowledge_base" "this" {
   }
 
   storage_configuration {
-    type = "OPENSEARCH_SERVERLESS"
+    type = "S3_VECTORS"
 
-    opensearch_serverless_configuration {
-      collection_arn    = aws_opensearchserverless_collection.kb.arn
-      vector_index_name = local.vector_index_name
+    s3_vectors_configuration {
+      index_arn = aws_s3vectors_index.kb.arn
 
       field_mapping {
         vector_field   = var.vector_field
@@ -395,7 +319,6 @@ resource "aws_bedrockagent_data_source" "primary" {
 
   data_source_configuration {
     type = "S3"
-
     s3_configuration {
       bucket_arn         = local.primary_bucket_arn
       inclusion_prefixes = var.primary_bucket_prefix != "" ? [var.primary_bucket_prefix] : null
@@ -430,7 +353,6 @@ resource "aws_bedrockagent_data_source" "secondary" {
 
   data_source_configuration {
     type = "S3"
-
     s3_configuration {
       bucket_arn         = local.secondary_bucket_arn
       inclusion_prefixes = var.secondary_bucket_prefix != "" ? [var.secondary_bucket_prefix] : null
@@ -459,10 +381,7 @@ resource "aws_bedrockagent_data_source" "secondary" {
 }
 
 ################################################################################
-# IAM Policy — for your app (ECS task role) to query the KB
-#
-# This is attached to the ECS task role in deployments/bedrock/stage/main.tf
-# so your Spring Boot app can call bedrock:Retrieve / bedrock:RetrieveAndGenerate
+# IAM Policy — for your app (ECS task role) to call the KB
 ################################################################################
 
 data "aws_iam_policy_document" "kb_access" {
@@ -491,6 +410,5 @@ resource "aws_iam_policy" "kb_access" {
   name        = "${local.name_prefix}-bedrock-kb-access"
   description = "Allows the ${local.name_prefix} app to query the Bedrock Knowledge Base"
   policy      = data.aws_iam_policy_document.kb_access.json
-
-  tags = { Name = "${local.name_prefix}-bedrock-kb-access" }
+  tags        = { Name = "${local.name_prefix}-bedrock-kb-access" }
 }
