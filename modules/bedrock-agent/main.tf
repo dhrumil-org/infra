@@ -130,4 +130,8 @@ resource "aws_bedrockagent_agent_alias" "this" {
   description      = var.alias_description != "" ? var.alias_description : "${var.env} alias"
 
   tags = { Name = "${local.agent_name}-${var.alias_name}" }
+
+  # Must come after KB association — alias creation triggers versioning,
+  # which blocks the PrepareAgent call inside aws_bedrockagent_agent_knowledge_base_association.
+  depends_on = [aws_bedrockagent_agent_knowledge_base_association.this]
 }
