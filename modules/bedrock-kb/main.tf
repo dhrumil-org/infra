@@ -267,9 +267,9 @@ resource "aws_s3vectors_index" "kb" {
   vector_bucket_name = aws_s3vectors_vector_bucket.kb.vector_bucket_name
   index_name         = local.vector_index_name
 
-  data_type = "float32"
-  dimension = var.vector_dimensions
-  metric    = "cosine"
+  data_type       = "float32"
+  dimension       = var.vector_dimensions
+  distance_metric = "cosine"
 }
 
 ################################################################################
