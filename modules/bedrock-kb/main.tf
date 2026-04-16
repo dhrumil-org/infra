@@ -360,7 +360,7 @@ resource "aws_bedrockagent_data_source" "secondary" {
       semantic_chunking_configuration {
         breakpoint_percentile_threshold = 95
         buffer_size                     = 0
-        max_tokens                      = 300
+        max_token                       = 300
       }
     }
 
