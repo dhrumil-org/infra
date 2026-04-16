@@ -52,3 +52,13 @@ output "multimodal_bucket_name" {
   description = "S3 bucket for extracted multimodal content (images, audio)"
   value       = local.multimodal_bucket_name
 }
+
+output "kb_access_policy_arn" {
+  description = "IAM policy ARN — attach to your ECS task role so the app can call Retrieve / RetrieveAndGenerate"
+  value       = aws_iam_policy.kb_access.arn
+}
+
+output "kb_access_policy_name" {
+  description = "IAM policy name"
+  value       = aws_iam_policy.kb_access.name
+}

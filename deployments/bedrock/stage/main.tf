@@ -61,6 +61,31 @@ module "bedrock_kb" {
 }
 
 ################################################################################
+# Attach KB access policy to ECS task role
+#
+# This gives the Spring Boot app running in ECS permission to call
+# bedrock:Retrieve and bedrock:RetrieveAndGenerate against this KB.
+#
+# The ECS task role ARN comes from the ecs/stage deployment remote state.
+# Run this deployment AFTER deployments/ecs/stage has been applied.
+################################################################################
+
+data "terraform_remote_state" "ecs_stage" {
+  backend = "s3"
+
+  config = {
+    bucket = "vocanote-terraform-state-499290259511"
+    key    = "ecs/stage/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_kb_access" {
+  role       = data.terraform_remote_state.ecs_stage.outputs.ecs_task_role_name
+  policy_arn = module.bedrock_kb.kb_access_policy_arn
+}
+
+################################################################################
 # Outputs
 ################################################################################
 
@@ -105,6 +130,11 @@ output "vector_bucket_name" {
 }
 
 output "bedrock_kb_role_arn" {
-  description = "IAM role ARN used by the Knowledge Base"
+  description = "IAM role ARN used by the Knowledge Base (internal — Bedrock uses this)"
   value       = module.bedrock_kb.bedrock_kb_role_arn
+}
+
+output "kb_access_policy_arn" {
+  description = "IAM policy ARN attached to ECS task role — grants app access to Retrieve/RetrieveAndGenerate"
+  value       = module.bedrock_kb.kb_access_policy_arn
 }

@@ -368,6 +368,54 @@ resource "aws_bedrockagent_data_source" "primary" {
 }
 
 ################################################################################
+# IAM Policy — for your application (ECS task role) to query the KB
+#
+# Attach module.bedrock_kb.kb_access_policy_arn to your ECS task role:
+#
+#   resource "aws_iam_role_policy_attachment" "ecs_task_kb_access" {
+#     role       = module.ecs_service.task_role_name
+#     policy_arn = module.bedrock_kb.kb_access_policy_arn
+#   }
+#
+# Your Spring Boot app then calls:
+#   bedrockAgentClient.retrieve(RetrieveRequest)
+#   bedrockAgentClient.retrieveAndGenerate(RetrieveAndGenerateRequest)
+################################################################################
+
+data "aws_iam_policy_document" "kb_access" {
+  # Query the Knowledge Base (retrieve chunks)
+  statement {
+    sid    = "AllowKBRetrieve"
+    effect = "Allow"
+    actions = [
+      "bedrock:Retrieve",
+      "bedrock:RetrieveAndGenerate",
+    ]
+    resources = [aws_bedrockagent_knowledge_base.this.arn]
+  }
+
+  # Invoke the response generation model (needed for RetrieveAndGenerate)
+  statement {
+    sid    = "AllowResponseModelInvoke"
+    effect = "Allow"
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+    ]
+    # Allow any Bedrock model — narrow this down to the specific model your app uses
+    resources = ["arn:aws:bedrock:${var.aws_region}::foundation-model/*"]
+  }
+}
+
+resource "aws_iam_policy" "kb_access" {
+  name        = "${local.name_prefix}-bedrock-kb-access"
+  description = "Allows the ${local.name_prefix} app to query the Bedrock Knowledge Base"
+  policy      = data.aws_iam_policy_document.kb_access.json
+
+  tags = { Name = "${local.name_prefix}-bedrock-kb-access" }
+}
+
+################################################################################
 # Data Source 2 — Secondary (Bedrock model parsing + semantic chunking)
 # Matches "dev-kb-source" in the screenshots
 ################################################################################

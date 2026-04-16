@@ -365,6 +365,16 @@ output "vpc_id" {
   value       = module.vpc.vpc_id
 }
 
+output "ecs_task_role_name" {
+  description = "ECS task role name — used by other deployments to attach policies"
+  value       = module.ecs_service.task_role_name
+}
+
+output "ecs_task_role_arn" {
+  description = "ECS task role ARN"
+  value       = module.ecs_service.task_role_arn
+}
+
 output "ecs_cluster_name" {
   description = "ECS cluster name"
   value       = module.ecs_cluster.cluster_name
