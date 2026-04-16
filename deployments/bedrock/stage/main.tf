@@ -63,25 +63,17 @@ module "bedrock_kb" {
 ################################################################################
 # Attach KB access policy to ECS task role
 #
-# This gives the Spring Boot app running in ECS permission to call
-# bedrock:Retrieve and bedrock:RetrieveAndGenerate against this KB.
-#
-# The ECS task role ARN comes from the ecs/stage deployment remote state.
-# Run this deployment AFTER deployments/ecs/stage has been applied.
+# Looks up the role by name — no remote state dependency.
+# Role name follows the ecs-service module convention:
+#   {project}-{env}-{service_name}-task-role → vocanote-stage-app-task-role
 ################################################################################
 
-data "terraform_remote_state" "ecs_stage" {
-  backend = "s3"
-
-  config = {
-    bucket = "vocanote-terraform-state-499290259511"
-    key    = "ecs/stage/terraform.tfstate"
-    region = "us-east-1"
-  }
+data "aws_iam_role" "ecs_task" {
+  name = "${var.project}-${var.env}-app-task-role"
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_kb_access" {
-  role       = data.terraform_remote_state.ecs_stage.outputs.ecs_task_role_name
+  role       = data.aws_iam_role.ecs_task.name
   policy_arn = module.bedrock_kb.kb_access_policy_arn
 }
 
