@@ -44,8 +44,8 @@ variable "embedding_model_arn" {
 variable "vector_dimensions" {
   description = "Vector dimensions — must match the embedding model output"
   type        = number
-  # Nova Multimodal Embeddings v1 = 1024
-  default = 1024
+  # amazon.nova-2-multimodal-embeddings-v1:0 = 3072
+  default = 3072
 }
 
 ################################################################################

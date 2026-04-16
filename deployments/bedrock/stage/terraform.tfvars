@@ -10,7 +10,7 @@ kb_description = "VocaNote stage knowledge base — voice notes and medical term
 # Amazon Nova Multimodal Embeddings v1 — matches dev-vocanote-kb-v2
 # Supports text + image inputs, 1024-dim float vectors
 embedding_model_arn = "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-multimodal-embeddings-v1:0"
-vector_dimensions   = 1024
+vector_dimensions   = 3072
 
 # S3 Vectors — auto-named: vocanote-stage-s3-vector-store / vocanote-stage-kb-index
 # Leave empty to use the env-prefixed defaults

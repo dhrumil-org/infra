@@ -42,7 +42,7 @@ variable "embedding_model_arn" {
 variable "vector_dimensions" {
   description = "Embedding vector dimensions (must match model)"
   type        = number
-  default     = 1024
+  default     = 3072
 }
 
 # S3 Vectors

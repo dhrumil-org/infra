@@ -268,7 +268,7 @@ resource "aws_s3vectors_index" "kb" {
   index_name         = local.vector_index_name
 
   data_type       = "float32"
-  dimension       = var.vector_dimensions
+  dimension       = var.vector_dimensions  # 3072 for amazon.nova-2-multimodal-embeddings-v1:0
   distance_metric = "cosine"
 }
 
