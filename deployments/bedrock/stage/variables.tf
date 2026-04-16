@@ -45,15 +45,9 @@ variable "vector_dimensions" {
   default     = 1024
 }
 
-# S3 Vectors
-variable "vector_bucket_name" {
-  description = "S3 Vectors bucket name. Defaults to {project}-{env}-s3-vector-store."
-  type        = string
-  default     = ""
-}
-
+# OpenSearch Serverless
 variable "vector_index_name" {
-  description = "S3 Vectors index name. Empty = auto-derive from env ({project}-{env}-kb-index)."
+  description = "OpenSearch index name. Empty = auto-derive as {project}-{env}-kb-index."
   type        = string
   default     = ""
 }

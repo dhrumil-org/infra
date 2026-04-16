@@ -2,9 +2,10 @@ locals {
   name_prefix  = "${var.project}-${var.env}"
   kb_full_name = "${local.name_prefix}-${var.kb_name}-kb"
 
-  # All resource names derive from name_prefix so stage → vocanote-stage-* and prod → vocanote-prod-*
-  vector_bucket_name = var.vector_bucket_name != "" ? var.vector_bucket_name : "${local.name_prefix}-s3-vector-store"
-  vector_index_name  = var.vector_index_name != "" ? var.vector_index_name : "${local.name_prefix}-kb-index"
+  # All resource names derive from name_prefix → stage: vocanote-stage-*, prod: vocanote-prod-*
+  # OpenSearch Serverless collection name max 32 chars — keep suffix short
+  collection_name   = "${local.name_prefix}-kb"
+  vector_index_name = var.vector_index_name != "" ? var.vector_index_name : "${local.name_prefix}-kb-index"
 
   # Resolve primary bucket
   primary_bucket_name = var.create_primary_bucket ? aws_s3_bucket.primary[0].bucket : var.existing_primary_bucket_name
@@ -18,7 +19,7 @@ locals {
   multimodal_bucket_name = var.create_multimodal_bucket ? aws_s3_bucket.multimodal[0].bucket : var.existing_multimodal_bucket_name
   multimodal_bucket_arn  = var.create_multimodal_bucket ? aws_s3_bucket.multimodal[0].arn : var.existing_multimodal_bucket_arn
 
-  # S3 buckets that Bedrock needs to read (for IAM)
+  # All source bucket ARNs Bedrock needs to read
   all_source_bucket_arns = var.enable_secondary_data_source ? [
     local.primary_bucket_arn,
     local.secondary_bucket_arn,
@@ -26,8 +27,17 @@ locals {
 }
 
 ################################################################################
-# Helper — common S3 bucket settings
+# S3 Buckets
 ################################################################################
+
+# --- Primary: standard docs (PDFs, text files) ---
+
+resource "aws_s3_bucket" "primary" {
+  count         = var.create_primary_bucket ? 1 : 0
+  bucket        = "${local.name_prefix}-kb-data"
+  force_destroy = false
+  tags          = { Name = "${local.name_prefix}-kb-data" }
+}
 
 resource "aws_s3_bucket_versioning" "primary" {
   count  = var.create_primary_bucket ? 1 : 0
@@ -56,6 +66,15 @@ resource "aws_s3_bucket_public_access_block" "primary" {
   restrict_public_buckets = true
 }
 
+# --- Secondary: docs needing Bedrock model parsing ---
+
+resource "aws_s3_bucket" "secondary" {
+  count         = var.create_secondary_bucket && var.enable_secondary_data_source ? 1 : 0
+  bucket        = "${local.name_prefix}-kb-source"
+  force_destroy = false
+  tags          = { Name = "${local.name_prefix}-kb-source" }
+}
+
 resource "aws_s3_bucket_versioning" "secondary" {
   count  = var.create_secondary_bucket && var.enable_secondary_data_source ? 1 : 0
   bucket = aws_s3_bucket.secondary[0].id
@@ -81,6 +100,15 @@ resource "aws_s3_bucket_public_access_block" "secondary" {
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
+}
+
+# --- Multimodal: Bedrock writes extracted images/figures here ---
+
+resource "aws_s3_bucket" "multimodal" {
+  count         = var.create_multimodal_bucket ? 1 : 0
+  bucket        = "${local.name_prefix}-kb-assets"
+  force_destroy = false
+  tags          = { Name = "${local.name_prefix}-kb-assets" }
 }
 
 resource "aws_s3_bucket_versioning" "multimodal" {
@@ -111,46 +139,7 @@ resource "aws_s3_bucket_public_access_block" "multimodal" {
 }
 
 ################################################################################
-# Primary S3 bucket — main document data source (default parsing)
-################################################################################
-
-resource "aws_s3_bucket" "primary" {
-  count = var.create_primary_bucket ? 1 : 0
-
-  bucket        = "${local.name_prefix}-kb-data"
-  force_destroy = false
-
-  tags = { Name = "${local.name_prefix}-kb-data" }
-}
-
-################################################################################
-# Secondary S3 bucket — data source with Bedrock model parsing
-################################################################################
-
-resource "aws_s3_bucket" "secondary" {
-  count = var.create_secondary_bucket && var.enable_secondary_data_source ? 1 : 0
-
-  bucket        = "${local.name_prefix}-kb-source"
-  force_destroy = false
-
-  tags = { Name = "${local.name_prefix}-kb-source" }
-}
-
-################################################################################
-# Multimodal storage bucket — Bedrock writes extracted images / audio here
-################################################################################
-
-resource "aws_s3_bucket" "multimodal" {
-  count = var.create_multimodal_bucket ? 1 : 0
-
-  bucket        = "${local.name_prefix}-kb-assets"
-  force_destroy = false
-
-  tags = { Name = "${local.name_prefix}-kb-assets" }
-}
-
-################################################################################
-# IAM Role — Bedrock Knowledge Base service role
+# IAM Role — Bedrock Knowledge Base service role (internal, not for your app)
 ################################################################################
 
 data "aws_iam_policy_document" "bedrock_kb_assume" {
@@ -181,35 +170,30 @@ data "aws_iam_policy_document" "bedrock_kb_assume" {
 resource "aws_iam_role" "bedrock_kb" {
   name               = "${local.name_prefix}-bedrock-kb-role"
   assume_role_policy = data.aws_iam_policy_document.bedrock_kb_assume.json
-
-  tags = { Name = "${local.name_prefix}-bedrock-kb-role" }
+  tags               = { Name = "${local.name_prefix}-bedrock-kb-role" }
 }
 
 data "aws_iam_policy_document" "bedrock_kb_policy" {
   # Invoke embedding model
   statement {
-    sid    = "AllowEmbeddingModelInvoke"
-    effect = "Allow"
-    actions = [
-      "bedrock:InvokeModel",
-    ]
+    sid       = "AllowEmbeddingModelInvoke"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeModel"]
     resources = [var.embedding_model_arn]
   }
 
-  # Invoke parsing model (used by secondary data source)
+  # Invoke parsing model (secondary data source only)
   dynamic "statement" {
     for_each = var.enable_secondary_data_source ? [1] : []
     content {
-      sid    = "AllowParsingModelInvoke"
-      effect = "Allow"
-      actions = [
-        "bedrock:InvokeModel",
-      ]
+      sid       = "AllowParsingModelInvoke"
+      effect    = "Allow"
+      actions   = ["bedrock:InvokeModel"]
       resources = [var.parsing_model_arn]
     }
   }
 
-  # Read all source buckets
+  # Read all S3 data source buckets
   statement {
     sid    = "AllowS3DataSourceRead"
     effect = "Allow"
@@ -222,7 +206,7 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
     ])
   }
 
-  # Write multimodal storage (images, audio extracted by Bedrock)
+  # Write multimodal storage (extracted images/figures)
   statement {
     sid    = "AllowMultimodalStorageWrite"
     effect = "Allow"
@@ -237,22 +221,12 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
     ]
   }
 
-  # S3 Vectors — read/write vector index
+  # OpenSearch Serverless — write and query the vector index
   statement {
-    sid    = "AllowS3VectorsAccess"
-    effect = "Allow"
-    actions = [
-      "s3vectors:GetIndex",
-      "s3vectors:ListIndexes",
-      "s3vectors:PutVectors",
-      "s3vectors:GetVectors",
-      "s3vectors:DeleteVectors",
-      "s3vectors:QueryVectors",
-    ]
-    resources = [
-      "arn:aws:s3vectors:${var.aws_region}:${var.aws_account_id}:bucket/${local.vector_bucket_name}",
-      "arn:aws:s3vectors:${var.aws_region}:${var.aws_account_id}:bucket/${local.vector_bucket_name}/index/${local.vector_index_name}",
-    ]
+    sid       = "AllowOpenSearchAccess"
+    effect    = "Allow"
+    actions   = ["aoss:APIAccessAll"]
+    resources = ["arn:aws:aoss:${var.aws_region}:${var.aws_account_id}:collection/*"]
   }
 
   # KMS decryption (only if a KMS key is provided)
@@ -278,21 +252,99 @@ resource "aws_iam_role_policy" "bedrock_kb" {
 }
 
 ################################################################################
-# S3 Vectors — Vector bucket + index
-# (Amazon S3 Vectors replaces OpenSearch Serverless for this KB)
+# OpenSearch Serverless — Vector store
+# (The Terraform AWS provider does not yet support aws_s3vectors_* resources)
 ################################################################################
 
-resource "aws_s3vectors_vector_bucket" "kb" {
-  vector_bucket_name = local.vector_bucket_name
+resource "aws_opensearchserverless_security_policy" "encryption" {
+  name        = "${local.collection_name}-enc"
+  type        = "encryption"
+  description = "Encryption policy for ${local.collection_name}"
+
+  policy = jsonencode({
+    Rules = [
+      {
+        ResourceType = "collection"
+        Resource     = ["collection/${local.collection_name}"]
+      }
+    ]
+    AWSOwnedKey = true
+  })
 }
 
-resource "aws_s3vectors_index" "kb" {
-  vector_bucket_name = aws_s3vectors_vector_bucket.kb.vector_bucket_name
-  index_name         = local.vector_index_name
+resource "aws_opensearchserverless_security_policy" "network" {
+  name        = "${local.collection_name}-net"
+  type        = "network"
+  description = "Network policy for ${local.collection_name}"
 
-  data_type  = "float32"
-  dimension  = var.vector_dimensions
-  metric     = "cosine"
+  policy = jsonencode([
+    {
+      Rules = [
+        {
+          ResourceType = "collection"
+          Resource     = ["collection/${local.collection_name}"]
+        },
+        {
+          ResourceType = "dashboard"
+          Resource     = ["collection/${local.collection_name}"]
+        }
+      ]
+      AllowFromPublic = true
+    }
+  ])
+}
+
+resource "aws_opensearchserverless_access_policy" "kb" {
+  name        = "${local.collection_name}-access"
+  type        = "data"
+  description = "Data access for Bedrock KB role on ${local.collection_name}"
+
+  policy = jsonencode([
+    {
+      Rules = [
+        {
+          ResourceType = "index"
+          Resource     = ["index/${local.collection_name}/*"]
+          Permission = [
+            "aoss:CreateIndex",
+            "aoss:DeleteIndex",
+            "aoss:UpdateIndex",
+            "aoss:DescribeIndex",
+            "aoss:ReadDocument",
+            "aoss:WriteDocument",
+          ]
+        },
+        {
+          ResourceType = "collection"
+          Resource     = ["collection/${local.collection_name}"]
+          Permission = [
+            "aoss:CreateCollectionItems",
+            "aoss:DeleteCollectionItems",
+            "aoss:UpdateCollectionItems",
+            "aoss:DescribeCollectionItems",
+          ]
+        }
+      ]
+      Principal = [
+        aws_iam_role.bedrock_kb.arn,
+        "arn:aws:iam::${var.aws_account_id}:root",
+      ]
+    }
+  ])
+}
+
+resource "aws_opensearchserverless_collection" "kb" {
+  name        = local.collection_name
+  type        = "VECTORSEARCH"
+  description = "Vector store for ${local.kb_full_name}"
+
+  depends_on = [
+    aws_opensearchserverless_security_policy.encryption,
+    aws_opensearchserverless_security_policy.network,
+    aws_opensearchserverless_access_policy.kb,
+  ]
+
+  tags = { Name = local.collection_name }
 }
 
 ################################################################################
@@ -313,10 +365,11 @@ resource "aws_bedrockagent_knowledge_base" "this" {
   }
 
   storage_configuration {
-    type = "S3_VECTORS"
+    type = "OPENSEARCH_SERVERLESS"
 
-    s3_vectors_configuration {
-      index_arn = aws_s3vectors_index.kb.arn
+    opensearch_serverless_configuration {
+      collection_arn    = aws_opensearchserverless_collection.kb.arn
+      vector_index_name = local.vector_index_name
 
       field_mapping {
         vector_field   = var.vector_field
@@ -326,16 +379,13 @@ resource "aws_bedrockagent_knowledge_base" "this" {
     }
   }
 
-  tags = {
-    Name = local.kb_full_name
-  }
+  tags = { Name = local.kb_full_name }
 
   depends_on = [aws_iam_role_policy.bedrock_kb]
 }
 
 ################################################################################
-# Data Source 1 — Primary (default parsing, fixed-size chunking)
-# Matches "vocanote-dev-data" in the screenshots
+# Data Source 1 — Primary (fixed-size chunking, default parsing)
 ################################################################################
 
 resource "aws_bedrockagent_data_source" "primary" {
@@ -368,56 +418,7 @@ resource "aws_bedrockagent_data_source" "primary" {
 }
 
 ################################################################################
-# IAM Policy — for your application (ECS task role) to query the KB
-#
-# Attach module.bedrock_kb.kb_access_policy_arn to your ECS task role:
-#
-#   resource "aws_iam_role_policy_attachment" "ecs_task_kb_access" {
-#     role       = module.ecs_service.task_role_name
-#     policy_arn = module.bedrock_kb.kb_access_policy_arn
-#   }
-#
-# Your Spring Boot app then calls:
-#   bedrockAgentClient.retrieve(RetrieveRequest)
-#   bedrockAgentClient.retrieveAndGenerate(RetrieveAndGenerateRequest)
-################################################################################
-
-data "aws_iam_policy_document" "kb_access" {
-  # Query the Knowledge Base (retrieve chunks)
-  statement {
-    sid    = "AllowKBRetrieve"
-    effect = "Allow"
-    actions = [
-      "bedrock:Retrieve",
-      "bedrock:RetrieveAndGenerate",
-    ]
-    resources = [aws_bedrockagent_knowledge_base.this.arn]
-  }
-
-  # Invoke the response generation model (needed for RetrieveAndGenerate)
-  statement {
-    sid    = "AllowResponseModelInvoke"
-    effect = "Allow"
-    actions = [
-      "bedrock:InvokeModel",
-      "bedrock:InvokeModelWithResponseStream",
-    ]
-    # Allow any Bedrock model — narrow this down to the specific model your app uses
-    resources = ["arn:aws:bedrock:${var.aws_region}::foundation-model/*"]
-  }
-}
-
-resource "aws_iam_policy" "kb_access" {
-  name        = "${local.name_prefix}-bedrock-kb-access"
-  description = "Allows the ${local.name_prefix} app to query the Bedrock Knowledge Base"
-  policy      = data.aws_iam_policy_document.kb_access.json
-
-  tags = { Name = "${local.name_prefix}-bedrock-kb-access" }
-}
-
-################################################################################
-# Data Source 2 — Secondary (Bedrock model parsing + semantic chunking)
-# Matches "dev-kb-source" in the screenshots
+# Data Source 2 — Secondary (semantic chunking + Bedrock model parsing)
 ################################################################################
 
 resource "aws_bedrockagent_data_source" "secondary" {
@@ -437,29 +438,59 @@ resource "aws_bedrockagent_data_source" "secondary" {
   }
 
   vector_ingestion_configuration {
-    # Semantic chunking — Bedrock decides chunk boundaries based on meaning
     chunking_configuration {
       chunking_strategy = "SEMANTIC"
+
+      semantic_chunking_configuration {
+        breakpoint_percentile_threshold = 95
+        buffer_size                     = 0
+        max_tokens                      = 300
+      }
     }
 
-    # Bedrock model parsing — uses Claude to extract text from PDFs, images, etc.
     parsing_configuration {
       parsing_strategy = "BEDROCK_FOUNDATION_MODEL"
 
       bedrock_foundation_model_configuration {
         model_arn = var.parsing_model_arn
-
-        parsing_modality = "MULTIMODAL_WITH_TEXT_AND_IMAGES"
-      }
-    }
-
-    # Multimodal storage — where Bedrock writes extracted images/figures
-    custom_transformation_configuration {
-      intermediate_storage {
-        s3_location {
-          uri = "s3://${local.multimodal_bucket_name}/"
-        }
       }
     }
   }
+}
+
+################################################################################
+# IAM Policy — for your app (ECS task role) to query the KB
+#
+# This is attached to the ECS task role in deployments/bedrock/stage/main.tf
+# so your Spring Boot app can call bedrock:Retrieve / bedrock:RetrieveAndGenerate
+################################################################################
+
+data "aws_iam_policy_document" "kb_access" {
+  statement {
+    sid    = "AllowKBRetrieve"
+    effect = "Allow"
+    actions = [
+      "bedrock:Retrieve",
+      "bedrock:RetrieveAndGenerate",
+    ]
+    resources = [aws_bedrockagent_knowledge_base.this.arn]
+  }
+
+  statement {
+    sid    = "AllowResponseModelInvoke"
+    effect = "Allow"
+    actions = [
+      "bedrock:InvokeModel",
+      "bedrock:InvokeModelWithResponseStream",
+    ]
+    resources = ["arn:aws:bedrock:${var.aws_region}::foundation-model/*"]
+  }
+}
+
+resource "aws_iam_policy" "kb_access" {
+  name        = "${local.name_prefix}-bedrock-kb-access"
+  description = "Allows the ${local.name_prefix} app to query the Bedrock Knowledge Base"
+  policy      = data.aws_iam_policy_document.kb_access.json
+
+  tags = { Name = "${local.name_prefix}-bedrock-kb-access" }
 }

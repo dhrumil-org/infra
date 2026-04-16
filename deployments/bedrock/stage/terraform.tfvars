@@ -12,10 +12,9 @@ kb_description = "VocaNote stage knowledge base — voice notes and medical term
 embedding_model_arn = "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-embed-v1:0"
 vector_dimensions   = 1024
 
-# S3 Vectors — auto-named: vocanote-stage-s3-vector-store / vocanote-stage-kb-index
+# OpenSearch Serverless — auto-named: vocanote-stage-kb (collection) / vocanote-stage-kb-index
 # Leave empty to use the env-prefixed defaults
-vector_bucket_name = ""
-vector_index_name  = ""
+vector_index_name = ""
 
 # Primary data source — standard docs (text, PDFs)
 # Fixed-size chunking with 20% overlap
