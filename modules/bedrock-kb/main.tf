@@ -137,6 +137,61 @@ resource "aws_s3_bucket_public_access_block" "multimodal" {
   restrict_public_buckets = true
 }
 
+# Explicit bucket policy — required so Bedrock can validate write access
+# IAM role policy alone is not sufficient for this validation
+resource "aws_s3_bucket_policy" "multimodal" {
+  count  = var.create_multimodal_bucket ? 1 : 0
+  bucket = aws_s3_bucket.multimodal[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowBedrockKBRoleAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = aws_iam_role.bedrock_kb.arn
+        }
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+          "s3:GetBucketLocation",
+        ]
+        Resource = [
+          aws_s3_bucket.multimodal[0].arn,
+          "${aws_s3_bucket.multimodal[0].arn}/*",
+        ]
+      },
+      {
+        Sid    = "AllowBedrockServiceAccess"
+        Effect = "Allow"
+        Principal = {
+          Service = "bedrock.amazonaws.com"
+        }
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:ListBucket",
+        ]
+        Resource = [
+          aws_s3_bucket.multimodal[0].arn,
+          "${aws_s3_bucket.multimodal[0].arn}/*",
+        ]
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = var.aws_account_id
+          }
+        }
+      }
+    ]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.multimodal]
+}
+
 ################################################################################
 # IAM Role — Bedrock Knowledge Base service role (internal, not for your app)
 ################################################################################
@@ -313,7 +368,10 @@ resource "aws_bedrockagent_knowledge_base" "this" {
 
   tags = { Name = local.kb_full_name }
 
-  depends_on = [aws_iam_role_policy.bedrock_kb]
+  depends_on = [
+    aws_iam_role_policy.bedrock_kb,
+    aws_s3_bucket_policy.multimodal,
+  ]
 }
 
 ################################################################################
