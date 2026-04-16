@@ -30,7 +30,7 @@ output "vector_bucket_name" {
 
 output "vector_index_arn" {
   description = "S3 Vectors index ARN"
-  value       = aws_s3vectors_index.kb.arn
+  value       = aws_s3vectors_index.kb.index_arn
 }
 
 output "vector_index_name" {
