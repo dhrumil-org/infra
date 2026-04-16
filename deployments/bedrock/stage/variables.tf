@@ -28,47 +28,78 @@ variable "kb_name" {
 variable "kb_description" {
   description = "Knowledge Base description"
   type        = string
-  default     = "Knowledge base for VocaNote application"
+  default     = ""
 }
 
+# Embedding model
 variable "embedding_model_arn" {
   description = "ARN of the Bedrock embedding model"
   type        = string
-  default     = "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
+  # Amazon Nova Multimodal Embeddings v1 — matches dev-vocanote-kb-v2
+  default = "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-embed-v1:0"
 }
 
 variable "vector_dimensions" {
-  description = "Embedding vector dimensions"
+  description = "Embedding vector dimensions (must match model)"
   type        = number
-  default     = 1536
+  default     = 1024
 }
 
-variable "chunking_strategy" {
-  description = "Chunking strategy: FIXED_SIZE, NONE, HIERARCHICAL, or SEMANTIC"
-  type        = string
-  default     = "FIXED_SIZE"
-}
-
-variable "max_tokens" {
-  description = "Max tokens per chunk"
-  type        = number
-  default     = 512
-}
-
-variable "overlap_percentage" {
-  description = "Overlap percentage between chunks"
-  type        = number
-  default     = 20
-}
-
-variable "kb_bucket_prefix" {
-  description = "S3 prefix to scope the data source (empty = entire bucket)"
+# S3 Vectors
+variable "vector_bucket_name" {
+  description = "S3 Vectors bucket name. Defaults to {project}-{env}-s3-vector-store."
   type        = string
   default     = ""
 }
 
+variable "vector_index_name" {
+  description = "S3 Vectors index name"
+  type        = string
+  default     = "vocanote-kb-index"
+}
+
+# Primary data source
+variable "primary_chunking_strategy" {
+  description = "Chunking strategy for primary data source"
+  type        = string
+  default     = "FIXED_SIZE"
+}
+
+variable "primary_max_tokens" {
+  description = "Max tokens per chunk (FIXED_SIZE)"
+  type        = number
+  default     = 512
+}
+
+variable "primary_overlap_percentage" {
+  description = "Overlap % between chunks (FIXED_SIZE)"
+  type        = number
+  default     = 20
+}
+
+variable "primary_bucket_prefix" {
+  description = "S3 prefix for primary data source scope"
+  type        = string
+  default     = ""
+}
+
+# Secondary data source
+variable "secondary_bucket_prefix" {
+  description = "S3 prefix for secondary data source scope"
+  type        = string
+  default     = ""
+}
+
+variable "parsing_model_arn" {
+  description = "Bedrock model ARN for document parsing (secondary data source)"
+  type        = string
+  # Claude 3 Haiku — fast and cost-effective for parsing
+  default = "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
+}
+
+# KMS
 variable "kms_key_arn" {
-  description = "KMS key ARN for S3 bucket encryption (leave empty for SSE-S3)"
+  description = "KMS key ARN for S3 encryption. Empty = SSE-S3."
   type        = string
   default     = ""
 }

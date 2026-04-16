@@ -1,44 +1,41 @@
 locals {
-  name_prefix     = "${var.project}-${var.env}"
-  kb_full_name    = "${local.name_prefix}-${var.kb_name}-kb"
-  collection_name = "${local.name_prefix}-${var.collection_name}"
+  name_prefix = "${var.project}-${var.env}"
+  kb_full_name = "${local.name_prefix}-${var.kb_name}-kb"
 
-  # Resolve bucket values whether we created one or use an existing one
-  kb_bucket_name = var.create_kb_bucket ? aws_s3_bucket.kb[0].bucket : var.existing_kb_bucket_name
-  kb_bucket_arn  = var.create_kb_bucket ? aws_s3_bucket.kb[0].arn : var.existing_kb_bucket_arn
+  vector_bucket_name = var.vector_bucket_name != "" ? var.vector_bucket_name : "${local.name_prefix}-s3-vector-store"
+
+  # Resolve primary bucket
+  primary_bucket_name = var.create_primary_bucket ? aws_s3_bucket.primary[0].bucket : var.existing_primary_bucket_name
+  primary_bucket_arn  = var.create_primary_bucket ? aws_s3_bucket.primary[0].arn : var.existing_primary_bucket_arn
+
+  # Resolve secondary bucket
+  secondary_bucket_name = var.create_secondary_bucket ? aws_s3_bucket.secondary[0].bucket : var.existing_secondary_bucket_name
+  secondary_bucket_arn  = var.create_secondary_bucket ? aws_s3_bucket.secondary[0].arn : var.existing_secondary_bucket_arn
+
+  # Resolve multimodal bucket
+  multimodal_bucket_name = var.create_multimodal_bucket ? aws_s3_bucket.multimodal[0].bucket : var.existing_multimodal_bucket_name
+  multimodal_bucket_arn  = var.create_multimodal_bucket ? aws_s3_bucket.multimodal[0].arn : var.existing_multimodal_bucket_arn
+
+  # S3 buckets that Bedrock needs to read (for IAM)
+  all_source_bucket_arns = var.enable_secondary_data_source ? [
+    local.primary_bucket_arn,
+    local.secondary_bucket_arn,
+  ] : [local.primary_bucket_arn]
 }
 
 ################################################################################
-# S3 Bucket — Document storage for the Knowledge Base
-# (only created when create_kb_bucket = true)
+# Helper — common S3 bucket settings
 ################################################################################
 
-resource "aws_s3_bucket" "kb" {
-  count = var.create_kb_bucket ? 1 : 0
-
-  bucket        = "${local.name_prefix}-bedrock-kb-docs"
-  force_destroy = false
-
-  tags = {
-    Name = "${local.name_prefix}-bedrock-kb-docs"
-  }
+resource "aws_s3_bucket_versioning" "primary" {
+  count  = var.create_primary_bucket ? 1 : 0
+  bucket = aws_s3_bucket.primary[0].id
+  versioning_configuration { status = "Enabled" }
 }
 
-resource "aws_s3_bucket_versioning" "kb" {
-  count = var.create_kb_bucket ? 1 : 0
-
-  bucket = aws_s3_bucket.kb[0].id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "kb" {
-  count = var.create_kb_bucket ? 1 : 0
-
-  bucket = aws_s3_bucket.kb[0].id
-
+resource "aws_s3_bucket_server_side_encryption_configuration" "primary" {
+  count  = var.create_primary_bucket ? 1 : 0
+  bucket = aws_s3_bucket.primary[0].id
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm     = var.kms_key_arn != "" ? "aws:kms" : "AES256"
@@ -48,30 +45,106 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "kb" {
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "kb" {
-  count = var.create_kb_bucket ? 1 : 0
-
-  bucket = aws_s3_bucket.kb[0].id
-
+resource "aws_s3_bucket_public_access_block" "primary" {
+  count                   = var.create_primary_bucket ? 1 : 0
+  bucket                  = aws_s3_bucket.primary[0].id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_lifecycle_configuration" "kb" {
-  count = var.create_kb_bucket ? 1 : 0
+resource "aws_s3_bucket_versioning" "secondary" {
+  count  = var.create_secondary_bucket && var.enable_secondary_data_source ? 1 : 0
+  bucket = aws_s3_bucket.secondary[0].id
+  versioning_configuration { status = "Enabled" }
+}
 
-  bucket = aws_s3_bucket.kb[0].id
-
+resource "aws_s3_bucket_server_side_encryption_configuration" "secondary" {
+  count  = var.create_secondary_bucket && var.enable_secondary_data_source ? 1 : 0
+  bucket = aws_s3_bucket.secondary[0].id
   rule {
-    id     = "expire-old-versions"
-    status = "Enabled"
-
-    noncurrent_version_expiration {
-      noncurrent_days = 90
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = var.kms_key_arn != "" ? "aws:kms" : "AES256"
+      kms_master_key_id = var.kms_key_arn != "" ? var.kms_key_arn : null
     }
+    bucket_key_enabled = var.kms_key_arn != "" ? true : false
   }
+}
+
+resource "aws_s3_bucket_public_access_block" "secondary" {
+  count                   = var.create_secondary_bucket && var.enable_secondary_data_source ? 1 : 0
+  bucket                  = aws_s3_bucket.secondary[0].id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "multimodal" {
+  count  = var.create_multimodal_bucket ? 1 : 0
+  bucket = aws_s3_bucket.multimodal[0].id
+  versioning_configuration { status = "Enabled" }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "multimodal" {
+  count  = var.create_multimodal_bucket ? 1 : 0
+  bucket = aws_s3_bucket.multimodal[0].id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm     = var.kms_key_arn != "" ? "aws:kms" : "AES256"
+      kms_master_key_id = var.kms_key_arn != "" ? var.kms_key_arn : null
+    }
+    bucket_key_enabled = var.kms_key_arn != "" ? true : false
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "multimodal" {
+  count                   = var.create_multimodal_bucket ? 1 : 0
+  bucket                  = aws_s3_bucket.multimodal[0].id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+################################################################################
+# Primary S3 bucket — main document data source (default parsing)
+################################################################################
+
+resource "aws_s3_bucket" "primary" {
+  count = var.create_primary_bucket ? 1 : 0
+
+  bucket        = "${local.name_prefix}-kb-data"
+  force_destroy = false
+
+  tags = { Name = "${local.name_prefix}-kb-data" }
+}
+
+################################################################################
+# Secondary S3 bucket — data source with Bedrock model parsing
+################################################################################
+
+resource "aws_s3_bucket" "secondary" {
+  count = var.create_secondary_bucket && var.enable_secondary_data_source ? 1 : 0
+
+  bucket        = "${local.name_prefix}-kb-source"
+  force_destroy = false
+
+  tags = { Name = "${local.name_prefix}-kb-source" }
+}
+
+################################################################################
+# Multimodal storage bucket — Bedrock writes extracted images / audio here
+################################################################################
+
+resource "aws_s3_bucket" "multimodal" {
+  count = var.create_multimodal_bucket ? 1 : 0
+
+  bucket        = "${local.name_prefix}-kb-assets"
+  force_destroy = false
+
+  tags = { Name = "${local.name_prefix}-kb-assets" }
 }
 
 ################################################################################
@@ -107,13 +180,11 @@ resource "aws_iam_role" "bedrock_kb" {
   name               = "${local.name_prefix}-bedrock-kb-role"
   assume_role_policy = data.aws_iam_policy_document.bedrock_kb_assume.json
 
-  tags = {
-    Name = "${local.name_prefix}-bedrock-kb-role"
-  }
+  tags = { Name = "${local.name_prefix}-bedrock-kb-role" }
 }
 
 data "aws_iam_policy_document" "bedrock_kb_policy" {
-  # Allow invoking the embedding foundation model
+  # Invoke embedding model
   statement {
     sid    = "AllowEmbeddingModelInvoke"
     effect = "Allow"
@@ -123,7 +194,20 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
     resources = [var.embedding_model_arn]
   }
 
-  # Allow reading from the S3 data source bucket
+  # Invoke parsing model (used by secondary data source)
+  dynamic "statement" {
+    for_each = var.enable_secondary_data_source ? [1] : []
+    content {
+      sid    = "AllowParsingModelInvoke"
+      effect = "Allow"
+      actions = [
+        "bedrock:InvokeModel",
+      ]
+      resources = [var.parsing_model_arn]
+    }
+  }
+
+  # Read all source buckets
   statement {
     sid    = "AllowS3DataSourceRead"
     effect = "Allow"
@@ -131,28 +215,47 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
       "s3:GetObject",
       "s3:ListBucket",
     ]
-    resources = [
-      local.kb_bucket_arn,
-      "${local.kb_bucket_arn}/*",
-    ]
+    resources = flatten([
+      for arn in local.all_source_bucket_arns : [arn, "${arn}/*"]
+    ])
   }
 
-  # Allow writing to OpenSearch Serverless collection
+  # Write multimodal storage (images, audio extracted by Bedrock)
   statement {
-    sid    = "AllowOpenSearchAccess"
+    sid    = "AllowMultimodalStorageWrite"
     effect = "Allow"
     actions = [
-      "aoss:APIAccessAll",
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:ListBucket",
     ]
     resources = [
-      "arn:aws:aoss:${var.aws_region}:${var.aws_account_id}:collection/*",
+      local.multimodal_bucket_arn,
+      "${local.multimodal_bucket_arn}/*",
     ]
   }
 
-  # KMS decryption for S3 bucket (only if a KMS key is provided)
+  # S3 Vectors — read/write vector index
+  statement {
+    sid    = "AllowS3VectorsAccess"
+    effect = "Allow"
+    actions = [
+      "s3vectors:GetIndex",
+      "s3vectors:ListIndexes",
+      "s3vectors:PutVectors",
+      "s3vectors:GetVectors",
+      "s3vectors:DeleteVectors",
+      "s3vectors:QueryVectors",
+    ]
+    resources = [
+      "arn:aws:s3vectors:${var.aws_region}:${var.aws_account_id}:bucket/${local.vector_bucket_name}",
+      "arn:aws:s3vectors:${var.aws_region}:${var.aws_account_id}:bucket/${local.vector_bucket_name}/index/${var.vector_index_name}",
+    ]
+  }
+
+  # KMS decryption (only if a KMS key is provided)
   dynamic "statement" {
     for_each = var.kms_key_arn != "" ? [1] : []
-
     content {
       sid    = "AllowKMSDecrypt"
       effect = "Allow"
@@ -173,105 +276,21 @@ resource "aws_iam_role_policy" "bedrock_kb" {
 }
 
 ################################################################################
-# OpenSearch Serverless — Vector store
+# S3 Vectors — Vector bucket + index
+# (Amazon S3 Vectors replaces OpenSearch Serverless for this KB)
 ################################################################################
 
-# Encryption policy — required before collection creation
-resource "aws_opensearchserverless_security_policy" "encryption" {
-  name        = "${local.collection_name}-enc"
-  type        = "encryption"
-  description = "Encryption policy for ${local.collection_name} KB collection"
-
-  policy = jsonencode({
-    Rules = [
-      {
-        ResourceType = "collection"
-        Resource     = ["collection/${local.collection_name}"]
-      }
-    ]
-    AWSOwnedKey = true
-  })
+resource "aws_s3vectors_vector_bucket" "kb" {
+  vector_bucket_name = local.vector_bucket_name
 }
 
-# Network policy — allow Bedrock and console access
-resource "aws_opensearchserverless_security_policy" "network" {
-  name        = "${local.collection_name}-net"
-  type        = "network"
-  description = "Network policy for ${local.collection_name} KB collection"
+resource "aws_s3vectors_index" "kb" {
+  vector_bucket_name = aws_s3vectors_vector_bucket.kb.vector_bucket_name
+  index_name         = var.vector_index_name
 
-  policy = jsonencode([
-    {
-      Rules = [
-        {
-          ResourceType = "collection"
-          Resource     = ["collection/${local.collection_name}"]
-        },
-        {
-          ResourceType = "dashboard"
-          Resource     = ["collection/${local.collection_name}"]
-        }
-      ]
-      AllowFromPublic = true
-    }
-  ])
-}
-
-# Data access policy — allow Bedrock KB role to manage the index
-resource "aws_opensearchserverless_access_policy" "kb" {
-  name        = "${local.collection_name}-access"
-  type        = "data"
-  description = "Data access for Bedrock KB role on ${local.collection_name}"
-
-  policy = jsonencode([
-    {
-      Rules = [
-        {
-          ResourceType = "index"
-          Resource     = ["index/${local.collection_name}/*"]
-          Permission = [
-            "aoss:CreateIndex",
-            "aoss:DeleteIndex",
-            "aoss:UpdateIndex",
-            "aoss:DescribeIndex",
-            "aoss:ReadDocument",
-            "aoss:WriteDocument",
-          ]
-        },
-        {
-          ResourceType = "collection"
-          Resource     = ["collection/${local.collection_name}"]
-          Permission = [
-            "aoss:CreateCollectionItems",
-            "aoss:DeleteCollectionItems",
-            "aoss:UpdateCollectionItems",
-            "aoss:DescribeCollectionItems",
-          ]
-        }
-      ]
-      Principal = [
-        aws_iam_role.bedrock_kb.arn,
-        # Allow the account root so admins can inspect via console
-        "arn:aws:iam::${var.aws_account_id}:root",
-      ]
-    }
-  ])
-}
-
-# OpenSearch Serverless collection
-resource "aws_opensearchserverless_collection" "kb" {
-  name        = local.collection_name
-  type        = "VECTORSEARCH"
-  description = "Vector store for ${local.kb_full_name} Bedrock Knowledge Base"
-
-  depends_on = [
-    aws_opensearchserverless_security_policy.encryption,
-    aws_opensearchserverless_security_policy.network,
-    aws_opensearchserverless_access_policy.kb,
-  ]
-
-  tags = {
-    Name = local.collection_name
-  }
+  data_type  = "float32"
+  dimension  = var.vector_dimensions
+  metric     = "cosine"
 }
 
 ################################################################################
@@ -280,7 +299,7 @@ resource "aws_opensearchserverless_collection" "kb" {
 
 resource "aws_bedrockagent_knowledge_base" "this" {
   name        = local.kb_full_name
-  description = var.kb_description
+  description = var.kb_description != "" ? var.kb_description : "Knowledge base for ${local.name_prefix}"
   role_arn    = aws_iam_role.bedrock_kb.arn
 
   knowledge_base_configuration {
@@ -292,11 +311,10 @@ resource "aws_bedrockagent_knowledge_base" "this" {
   }
 
   storage_configuration {
-    type = "OPENSEARCH_SERVERLESS"
+    type = "S3_VECTORS"
 
-    opensearch_serverless_configuration {
-      collection_arn    = aws_opensearchserverless_collection.kb.arn
-      vector_index_name = var.vector_index_name
+    s3_vectors_configuration {
+      index_arn = aws_s3vectors_index.kb.arn
 
       field_mapping {
         vector_field   = var.vector_field
@@ -309,14 +327,17 @@ resource "aws_bedrockagent_knowledge_base" "this" {
   tags = {
     Name = local.kb_full_name
   }
+
+  depends_on = [aws_iam_role_policy.bedrock_kb]
 }
 
 ################################################################################
-# S3 Data Source
+# Data Source 1 — Primary (default parsing, fixed-size chunking)
+# Matches "vocanote-dev-data" in the screenshots
 ################################################################################
 
-resource "aws_bedrockagent_data_source" "s3" {
-  name                 = "${local.kb_full_name}-s3"
+resource "aws_bedrockagent_data_source" "primary" {
+  name                 = "${local.name_prefix}-kb-data"
   knowledge_base_id    = aws_bedrockagent_knowledge_base.this.id
   data_deletion_policy = "RETAIN"
 
@@ -324,21 +345,69 @@ resource "aws_bedrockagent_data_source" "s3" {
     type = "S3"
 
     s3_configuration {
-      bucket_arn         = local.kb_bucket_arn
-      inclusion_prefixes = var.kb_bucket_prefix != "" ? [var.kb_bucket_prefix] : null
+      bucket_arn         = local.primary_bucket_arn
+      inclusion_prefixes = var.primary_bucket_prefix != "" ? [var.primary_bucket_prefix] : null
     }
   }
 
   vector_ingestion_configuration {
     chunking_configuration {
-      chunking_strategy = var.chunking_strategy
+      chunking_strategy = var.primary_chunking_strategy
 
       dynamic "fixed_size_chunking_configuration" {
-        for_each = var.chunking_strategy == "FIXED_SIZE" ? [1] : []
-
+        for_each = var.primary_chunking_strategy == "FIXED_SIZE" ? [1] : []
         content {
-          max_tokens         = var.max_tokens
-          overlap_percentage = var.overlap_percentage
+          max_tokens         = var.primary_max_tokens
+          overlap_percentage = var.primary_overlap_percentage
+        }
+      }
+    }
+  }
+}
+
+################################################################################
+# Data Source 2 — Secondary (Bedrock model parsing + semantic chunking)
+# Matches "dev-kb-source" in the screenshots
+################################################################################
+
+resource "aws_bedrockagent_data_source" "secondary" {
+  count = var.enable_secondary_data_source ? 1 : 0
+
+  name                 = "${local.name_prefix}-kb-source"
+  knowledge_base_id    = aws_bedrockagent_knowledge_base.this.id
+  data_deletion_policy = "RETAIN"
+
+  data_source_configuration {
+    type = "S3"
+
+    s3_configuration {
+      bucket_arn         = local.secondary_bucket_arn
+      inclusion_prefixes = var.secondary_bucket_prefix != "" ? [var.secondary_bucket_prefix] : null
+    }
+  }
+
+  vector_ingestion_configuration {
+    # Semantic chunking — Bedrock decides chunk boundaries based on meaning
+    chunking_configuration {
+      chunking_strategy = "SEMANTIC"
+    }
+
+    # Bedrock model parsing — uses Claude to extract text from PDFs, images, etc.
+    parsing_configuration {
+      parsing_strategy = "BEDROCK_FOUNDATION_MODEL"
+
+      bedrock_foundation_model_configuration {
+        model_arn = var.parsing_model_arn
+
+        parsing_modality = "MULTIMODAL_WITH_TEXT_AND_IMAGES"
+      }
+    }
+
+    # Multimodal storage — where Bedrock writes extracted images/figures
+    custom_transformation_configuration {
+      intermediate_storage {
+        s3_location {
+          uri = "s3://${local.multimodal_bucket_name}/"
         }
       }
     }

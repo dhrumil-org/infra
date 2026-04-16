@@ -1,18 +1,23 @@
 ################################################################################
 # Bedrock Knowledge Base — Stage
 #
-# Creates:
-#   - S3 bucket for KB documents (upload PDFs / text files here)
-#   - OpenSearch Serverless collection (vector store)
-#   - Bedrock Knowledge Base linked to the collection
-#   - IAM service role for Bedrock
+# Mirrors dev-vocanote-kb-v2 configuration:
+#   - Embedding model : Amazon Nova Multimodal Embeddings v1 (1024 dims)
+#   - Vector store    : Amazon S3 Vectors
+#   - Data source 1   : Fixed-size chunking, default parsing
+#   - Data source 2   : Semantic chunking, Bedrock model parsing (Claude Haiku)
+#   - Multimodal store: Separate S3 bucket for extracted images/figures
 #
 # After apply:
-#   1. Upload documents to: s3://{kb_bucket_name}/
-#   2. Trigger a sync in the AWS Console (Knowledge Bases → Sync) or run:
+#   1. Upload documents to the S3 bucket shown in output "primary_bucket_name"
+#      (PDFs, plain text, DOCX)
+#   2. For Bedrock-parsed docs (audio transcripts, scanned PDFs) upload to
+#      output "secondary_bucket_name"
+#   3. Trigger a sync:
 #      aws bedrock-agent start-ingestion-job \
-#        --knowledge-base-id <kb_id> \
-#        --data-source-id   <ds_id>
+#        --knowledge-base-id $(terraform output -raw knowledge_base_id) \
+#        --data-source-id   $(terraform output -raw primary_data_source_id) \
+#        --region us-east-1
 ################################################################################
 
 module "bedrock_kb" {
@@ -23,28 +28,36 @@ module "bedrock_kb" {
   aws_region     = var.aws_region
   aws_account_id = var.aws_account_id
 
+  # Knowledge Base identity
   kb_name        = var.kb_name
   kb_description = var.kb_description
 
+  # Embedding model — Amazon Nova Multimodal Embeddings v1
   embedding_model_arn = var.embedding_model_arn
   vector_dimensions   = var.vector_dimensions
 
-  # S3 document bucket (created by this module)
-  create_kb_bucket = true
-  kms_key_arn      = var.kms_key_arn
-  kb_bucket_prefix = var.kb_bucket_prefix
+  # S3 Vectors vector store
+  vector_bucket_name = var.vector_bucket_name
+  vector_index_name  = var.vector_index_name
 
-  # Chunking
-  chunking_strategy  = var.chunking_strategy
-  max_tokens         = var.max_tokens
-  overlap_percentage = var.overlap_percentage
+  # Primary data source — default parsing, fixed-size chunking
+  create_primary_bucket      = true
+  primary_chunking_strategy  = var.primary_chunking_strategy
+  primary_max_tokens         = var.primary_max_tokens
+  primary_overlap_percentage = var.primary_overlap_percentage
+  primary_bucket_prefix      = var.primary_bucket_prefix
 
-  # OpenSearch Serverless
-  collection_name   = "kb"
-  vector_index_name = "bedrock-kb-index"
-  vector_field      = "bedrock-knowledge-base-default-vector"
-  text_field        = "AMAZON_BEDROCK_TEXT_CHUNK"
-  metadata_field    = "AMAZON_BEDROCK_METADATA"
+  # Secondary data source — Bedrock model parsing + semantic chunking
+  enable_secondary_data_source = true
+  create_secondary_bucket      = true
+  secondary_bucket_prefix      = var.secondary_bucket_prefix
+  parsing_model_arn            = var.parsing_model_arn
+
+  # Multimodal storage for extracted images/figures
+  create_multimodal_bucket = true
+
+  # KMS (leave empty for SSE-S3)
+  kms_key_arn = var.kms_key_arn
 }
 
 ################################################################################
@@ -56,29 +69,39 @@ output "knowledge_base_id" {
   value       = module.bedrock_kb.knowledge_base_id
 }
 
-output "knowledge_base_arn" {
-  description = "Bedrock Knowledge Base ARN"
-  value       = module.bedrock_kb.knowledge_base_arn
-}
-
 output "knowledge_base_name" {
   description = "Bedrock Knowledge Base name"
   value       = module.bedrock_kb.knowledge_base_name
 }
 
-output "data_source_id" {
-  description = "S3 data source ID — needed for ingestion job triggers"
-  value       = module.bedrock_kb.data_source_id
+output "primary_data_source_id" {
+  description = "Primary data source ID (for ingestion jobs)"
+  value       = module.bedrock_kb.primary_data_source_id
 }
 
-output "kb_bucket_name" {
-  description = "Upload your documents here to populate the KB"
-  value       = module.bedrock_kb.kb_bucket_name
+output "secondary_data_source_id" {
+  description = "Secondary data source ID — Bedrock model parsing"
+  value       = module.bedrock_kb.secondary_data_source_id
 }
 
-output "opensearch_collection_endpoint" {
-  description = "OpenSearch Serverless collection endpoint"
-  value       = module.bedrock_kb.opensearch_collection_endpoint
+output "primary_bucket_name" {
+  description = "Upload standard documents here (PDFs, text files)"
+  value       = module.bedrock_kb.primary_bucket_name
+}
+
+output "secondary_bucket_name" {
+  description = "Upload docs needing Bedrock parsing here (scanned PDFs, complex layouts)"
+  value       = module.bedrock_kb.secondary_bucket_name
+}
+
+output "multimodal_bucket_name" {
+  description = "Bedrock writes extracted images/figures here automatically"
+  value       = module.bedrock_kb.multimodal_bucket_name
+}
+
+output "vector_bucket_name" {
+  description = "S3 Vectors bucket (vector embeddings stored here)"
+  value       = module.bedrock_kb.vector_bucket_name
 }
 
 output "bedrock_kb_role_arn" {

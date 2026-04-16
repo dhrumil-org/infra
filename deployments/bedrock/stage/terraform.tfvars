@@ -7,17 +7,27 @@ aws_account_id = "499290259511"
 kb_name        = "main"
 kb_description = "VocaNote stage knowledge base — voice notes and medical terminology"
 
-# Titan Embed Text v2 — best accuracy, 1536 dimensions
-embedding_model_arn = "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
-vector_dimensions   = 1536
+# Amazon Nova Multimodal Embeddings v1 — matches dev-vocanote-kb-v2
+# Supports text + image inputs, 1024-dim float vectors
+embedding_model_arn = "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-embed-v1:0"
+vector_dimensions   = 1024
 
-# Chunking: 512 tokens with 20% overlap works well for Q&A use cases
-chunking_strategy  = "FIXED_SIZE"
-max_tokens         = 512
-overlap_percentage = 20
+# S3 Vectors — will create vocanote-stage-s3-vector-store with index vocanote-kb-index
+vector_bucket_name = ""
+vector_index_name  = "vocanote-kb-index"
 
-# Leave empty to index the entire bucket, or set e.g. "docs/" to limit scope
-kb_bucket_prefix = ""
+# Primary data source — standard docs (text, PDFs)
+# Fixed-size chunking with 20% overlap
+primary_chunking_strategy  = "FIXED_SIZE"
+primary_max_tokens         = 512
+primary_overlap_percentage = 20
+primary_bucket_prefix      = ""
 
-# Leave empty to use SSE-S3 (AES256), or set a KMS key ARN for CMK encryption
+# Secondary data source — Bedrock model parsing (scanned PDFs, audio transcripts)
+# Semantic chunking + Claude Haiku as parser
+secondary_bucket_prefix = ""
+parsing_model_arn       = "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
+
+# KMS — leave empty to use SSE-S3 (AES256)
+# Set to a KMS key ARN for HIPAA CMK encryption
 kms_key_arn = ""

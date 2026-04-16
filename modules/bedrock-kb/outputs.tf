@@ -13,19 +13,24 @@ output "knowledge_base_name" {
   value       = aws_bedrockagent_knowledge_base.this.name
 }
 
-output "data_source_id" {
-  description = "S3 data source ID"
-  value       = aws_bedrockagent_data_source.s3.data_source_id
+output "primary_data_source_id" {
+  description = "Primary S3 data source ID"
+  value       = aws_bedrockagent_data_source.primary.data_source_id
 }
 
-output "opensearch_collection_arn" {
-  description = "OpenSearch Serverless collection ARN"
-  value       = aws_opensearchserverless_collection.kb.arn
+output "secondary_data_source_id" {
+  description = "Secondary S3 data source ID (Bedrock model parsing)"
+  value       = var.enable_secondary_data_source ? aws_bedrockagent_data_source.secondary[0].data_source_id : null
 }
 
-output "opensearch_collection_endpoint" {
-  description = "OpenSearch Serverless collection endpoint URL"
-  value       = aws_opensearchserverless_collection.kb.collection_endpoint
+output "vector_bucket_name" {
+  description = "S3 Vectors bucket name"
+  value       = aws_s3vectors_vector_bucket.kb.vector_bucket_name
+}
+
+output "vector_index_arn" {
+  description = "S3 Vectors index ARN"
+  value       = aws_s3vectors_index.kb.arn
 }
 
 output "bedrock_kb_role_arn" {
@@ -33,12 +38,17 @@ output "bedrock_kb_role_arn" {
   value       = aws_iam_role.bedrock_kb.arn
 }
 
-output "kb_bucket_name" {
-  description = "S3 bucket name holding KB documents (empty if using existing bucket)"
-  value       = var.create_kb_bucket ? aws_s3_bucket.kb[0].bucket : var.existing_kb_bucket_name
+output "primary_bucket_name" {
+  description = "Primary S3 bucket for KB documents"
+  value       = local.primary_bucket_name
 }
 
-output "kb_bucket_arn" {
-  description = "S3 bucket ARN for KB documents"
-  value       = local.kb_bucket_arn
+output "secondary_bucket_name" {
+  description = "Secondary S3 bucket (Bedrock model parsing data source)"
+  value       = var.enable_secondary_data_source ? local.secondary_bucket_name : null
+}
+
+output "multimodal_bucket_name" {
+  description = "S3 bucket for extracted multimodal content (images, audio)"
+  value       = local.multimodal_bucket_name
 }
