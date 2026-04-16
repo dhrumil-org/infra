@@ -38,7 +38,7 @@ variable "embedding_model_arn" {
   description = "ARN of the Bedrock foundation model used for embeddings"
   type        = string
   # Amazon Nova Multimodal Embeddings v1 — supports text + image, 1024 dims
-  default = "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-embed-v1:0"
+  default = "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-multimodal-embeddings-v1:0"
 }
 
 variable "vector_dimensions" {
