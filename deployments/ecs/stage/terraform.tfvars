@@ -41,7 +41,7 @@ app_db_secret_name = "vocuone/stage/db"
 app_db_username    = "vocanote_service_user"
 
 # Spring profile — use "dev" for password auth (bypass RDS IAM), "stage" for IAM token auth
-spring_profile = "dev"
+spring_profile = "stage"
 
 # App environment variables
 app_email_redirect_url = "https://your-frontend-url.com"
