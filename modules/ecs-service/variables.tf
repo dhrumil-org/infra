@@ -108,6 +108,12 @@ variable "secrets_arns" {
   default     = ["arn:aws:secretsmanager:*:*:secret:*"]
 }
 
+variable "task_secret_arns" {
+  description = "ARNs of secrets the task role (app) can read at runtime via AWS SDK"
+  type        = list(string)
+  default     = []
+}
+
 variable "kms_key_arns" {
   description = "ARNs of KMS keys the execution role can use"
   type        = list(string)

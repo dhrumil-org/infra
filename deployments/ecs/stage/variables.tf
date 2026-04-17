@@ -176,6 +176,12 @@ variable "app_db_username" {
   default     = "vocanote_service_user"
 }
 
+variable "task_secret_arns" {
+  description = "Secret ARNs the ECS task role can read at runtime (app reads via AWS SDK)"
+  type        = list(string)
+  default     = []
+}
+
 ################################################################################
 # App Environment Variables
 ################################################################################

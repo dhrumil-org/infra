@@ -251,6 +251,9 @@ module "ecs_service" {
   scale_out_cooldown       = 120
 
   kms_key_arns = [module.kms.key_arns["logs"], module.kms.key_arns["ecr"]]
+
+  # Secrets the app reads at runtime via AWS SDK (not injected as env vars)
+  task_secret_arns = var.task_secret_arns
 }
 
 ################################################################################
