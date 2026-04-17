@@ -21,9 +21,12 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "aws:kms"
+      # AES256 avoids KMS key confusion — CodePipeline artifact_store has no
+      # encryption_key block, so using aws:kms causes "Insufficient permissions"
+      # when CodePipeline tries to GenerateDataKey without knowing the key ARN.
+      # Pipeline artifacts (taskdef.json, appspec.yaml) contain no sensitive data.
+      sse_algorithm = "AES256"
     }
-    bucket_key_enabled = true
   }
 }
 
@@ -83,7 +86,7 @@ resource "aws_s3_object" "config" {
   key                    = "config/config.zip"
   source                 = data.archive_file.config.output_path
   etag                   = data.archive_file.config.output_md5
-  server_side_encryption = "aws:kms"
+  server_side_encryption = "AES256"
 
   depends_on = [
     data.archive_file.config,
