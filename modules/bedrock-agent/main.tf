@@ -49,9 +49,12 @@ data "aws_iam_policy_document" "agent_policy" {
     ]
     resources = [
       "arn:aws:bedrock:${var.aws_region}::foundation-model/${var.foundation_model}",
-      # Allow cross-region inference profiles
+      # All foundation models (cross-region)
       "arn:aws:bedrock:*::foundation-model/*",
+      # Customer-managed inference profiles
       "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/*",
+      # AWS-managed cross-region inference profiles (us.*, eu.*, ap.*) — no account ID
+      "arn:aws:bedrock:*::inference-profile/*",
     ]
   }
 
