@@ -1,5 +1,15 @@
 data "aws_caller_identity" "current" {}
 
+# Pull Bedrock IDs dynamically from bedrock/stage remote state
+data "terraform_remote_state" "bedrock_stage" {
+  backend = "s3"
+  config = {
+    bucket = "vocanote-terraform-state-499290259511"
+    key    = "bedrock/stage/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
 ################################################################################
 # Shared env vars passed to both the initial ECS task def and CodePipeline
 # redeployments via taskdef.json template
@@ -26,6 +36,18 @@ locals {
     {
       name  = "APP_EMAIL_REDIRECT_URL"
       value = var.app_email_redirect_url
+    },
+    {
+      name  = "BEDROCK_KB_ID"
+      value = data.terraform_remote_state.bedrock_stage.outputs.knowledge_base_id
+    },
+    {
+      name  = "BEDROCK_AGENT_ID"
+      value = data.terraform_remote_state.bedrock_stage.outputs.agent_id
+    },
+    {
+      name  = "BEDROCK_AGENT_ALIAS_ID"
+      value = data.terraform_remote_state.bedrock_stage.outputs.agent_alias_id
     },
   ]
 }
