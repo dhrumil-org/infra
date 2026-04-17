@@ -16,12 +16,13 @@ asg_max_size         = 3
 asg_desired_capacity = 1
 container_image      = "499290259511.dkr.ecr.us-east-1.amazonaws.com/vocanote-stage-app:latest"
 container_port       = 8080
+
 task_cpu             = 512
 task_memory          = 1024
 
 # ALB
 acm_certificate_arn = "arn:aws:acm:us-east-1:499290259511:certificate/76546c9c-daec-44d0-9544-a2ff36dac831"
-health_check_path   = "/"
+health_check_path   = "/health"
 
 # RDS
 db_engine_version          = "16.4"
