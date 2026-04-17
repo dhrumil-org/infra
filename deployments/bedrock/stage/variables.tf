@@ -123,7 +123,7 @@ variable "agent_description" {
 variable "agent_foundation_model" {
   description = "Foundation model ID for the agent"
   type        = string
-  default     = "us.anthropic.claude-sonnet-4-5:0"
+  default     = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 }
 
 variable "agent_instruction" {

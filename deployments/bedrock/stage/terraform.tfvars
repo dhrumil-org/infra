@@ -36,7 +36,7 @@ kms_key_arn = ""
 # Bedrock Agent
 agent_name             = "assistant"
 agent_description      = "VocaNote stage AI assistant"
-agent_foundation_model = "us.anthropic.claude-sonnet-4-5:0"
+agent_foundation_model = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 # Copy the exact instruction text from your dev agent (Agent builder → Instructions field)
 agent_instruction = <<-EOT
