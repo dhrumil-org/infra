@@ -239,9 +239,12 @@ resource "aws_iam_role_policy" "codepipeline" {
         Action = [
           "s3:GetObject",
           "s3:GetObjectVersion",
+          "s3:GetObjectVersionTagging",
           "s3:GetBucketVersioning",
           "s3:GetBucketLocation",
+          "s3:GetBucketAcl",
           "s3:ListBucket",
+          "s3:ListBucketVersions",
           "s3:PutObject",
           "s3:PutObjectAcl"
         ]
