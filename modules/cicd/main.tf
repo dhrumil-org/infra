@@ -97,6 +97,7 @@ resource "aws_s3_object" "config" {
 
   depends_on = [
     data.archive_file.config,
+    aws_s3_bucket_versioning.artifacts,
     aws_s3_bucket_server_side_encryption_configuration.artifacts,
   ]
 }
