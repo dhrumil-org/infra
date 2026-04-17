@@ -1,4 +1,13 @@
 ################################################################################
+# AWS managed S3 KMS key — used for artifact bucket + artifact_store so
+# CodePipeline knows exactly which key to GenerateDataKey/Decrypt against.
+################################################################################
+
+data "aws_kms_key" "s3_managed" {
+  key_id = "alias/aws/s3"
+}
+
+################################################################################
 # S3 Artifact Bucket for CodePipeline
 ################################################################################
 
@@ -21,12 +30,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
   rule {
     apply_server_side_encryption_by_default {
-      # AES256 avoids KMS key confusion — CodePipeline artifact_store has no
-      # encryption_key block, so using aws:kms causes "Insufficient permissions"
-      # when CodePipeline tries to GenerateDataKey without knowing the key ARN.
-      # Pipeline artifacts (taskdef.json, appspec.yaml) contain no sensitive data.
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = data.aws_kms_key.s3_managed.arn
     }
+    bucket_key_enabled = true
   }
 }
 
@@ -86,7 +93,8 @@ resource "aws_s3_object" "config" {
   key                    = "config/config.zip"
   source                 = data.archive_file.config.output_path
   etag                   = data.archive_file.config.output_md5
-  server_side_encryption = "AES256"
+  server_side_encryption = "aws:kms"
+  kms_key_id             = data.aws_kms_key.s3_managed.arn
 
   depends_on = [
     data.archive_file.config,
@@ -105,6 +113,13 @@ resource "aws_codepipeline" "this" {
   artifact_store {
     location = aws_s3_bucket.artifacts.bucket
     type     = "S3"
+
+    # Must match the bucket's KMS key — without this CodePipeline doesn't know
+    # which key to use and throws "Insufficient permissions" on source actions.
+    encryption_key {
+      id   = data.aws_kms_key.s3_managed.arn
+      type = "KMS"
+    }
   }
 
   ############################################################################
@@ -274,7 +289,8 @@ resource "aws_iam_role_policy" "codepipeline" {
         Effect = "Allow"
         Action = [
           "kms:Decrypt",
-          "kms:GenerateDataKey"
+          "kms:DescribeKey",
+          "kms:GenerateDataKey*"
         ]
         Resource = "*"
       },
