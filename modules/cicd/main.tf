@@ -91,9 +91,7 @@ data "archive_file" "config" {
 resource "aws_s3_object" "config" {
   bucket                 = aws_s3_bucket.artifacts.id
   key                    = "config/config.zip"
-  source                 = data.archive_file.config.output_path
-  server_side_encryption = "aws:kms"
-  kms_key_id             = data.aws_kms_key.s3_managed.arn
+  source = data.archive_file.config.output_path
 
   depends_on = [
     data.archive_file.config,
