@@ -9,7 +9,7 @@ locals {
   app_environment_variables = [
     {
       name  = "SPRING_PROFILES_ACTIVE"
-      value = var.env
+      value = var.spring_profile
     },
     {
       name  = "AWS_REGION"

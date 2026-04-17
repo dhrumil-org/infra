@@ -176,6 +176,12 @@ variable "app_db_username" {
   default     = "vocanote_service_user"
 }
 
+variable "spring_profile" {
+  description = "Spring profile to activate (dev = password auth, stage = IAM auth)"
+  type        = string
+  default     = "stage"
+}
+
 variable "task_secret_arns" {
   description = "Secret ARNs the ECS task role can read at runtime (app reads via AWS SDK)"
   type        = list(string)
