@@ -12,6 +12,10 @@ locals {
       value = var.env
     },
     {
+      name  = "AWS_REGION"
+      value = var.aws_region
+    },
+    {
       name  = "aws.region"
       value = var.aws_region
     },
@@ -20,8 +24,8 @@ locals {
       value = var.app_db_secret_name
     },
     {
-      name  = "AWS_REGION"
-      value = var.aws_region
+      name  = "APP_EMAIL_REDIRECT_URL"
+      value = var.app_email_redirect_url
     },
   ]
 }

@@ -175,3 +175,12 @@ variable "app_db_username" {
   type        = string
   default     = "vocanote_service_user"
 }
+
+################################################################################
+# App Environment Variables
+################################################################################
+
+variable "app_email_redirect_url" {
+  description = "Frontend URL the app redirects to after email verification"
+  type        = string
+}

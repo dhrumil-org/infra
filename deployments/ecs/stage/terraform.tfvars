@@ -38,3 +38,6 @@ db_apply_immediately       = true
 # App-facing DB secret (matches what Spring Boot reads)
 app_db_secret_name = "vocuone/stage/db"
 app_db_username    = "vocanote_service_user"
+
+# App environment variables
+app_email_redirect_url = "https://your-frontend-url.com"
