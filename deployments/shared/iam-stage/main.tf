@@ -11,11 +11,41 @@
 #   - CodePipeline / CodeDeploy (trigger deployments)
 #   - RDS (describe, connect via IAM auth)
 #   - KMS (decrypt stage keys)
+#   - SSM (bastion access)
+#   - Marketplace (subscribe to Bedrock models)
 ################################################################################
+
+################################################################################
+# Dynamic lookups — no hardcoded IDs
+################################################################################
+
+# Resolve AWS account ID from the current caller
+data "aws_caller_identity" "current" {}
+
+# Resolve region from the provider (avoids duplicating it in variables)
+data "aws_region" "current" {}
+
+# Pull Bedrock agent + KB IDs from the bedrock/stage remote state
+data "terraform_remote_state" "bedrock_stage" {
+  backend = "s3"
+  config = {
+    bucket = "vocanote-terraform-state-499290259511"
+    key    = "bedrock/stage/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
 
 locals {
   stage_prefix = "${var.project}-stage"
+  account_id   = data.aws_caller_identity.current.account_id
+  region       = data.aws_region.current.name
+  agent_id     = data.terraform_remote_state.bedrock_stage.outputs.agent_id
+  kb_id        = data.terraform_remote_state.bedrock_stage.outputs.knowledge_base_id
 }
+
+################################################################################
+# IAM User
+################################################################################
 
 resource "aws_iam_user" "stage_dev" {
   name = "${local.stage_prefix}-developer"
@@ -33,7 +63,7 @@ resource "aws_iam_access_key" "stage_dev" {
 
 resource "aws_iam_policy" "stage_dev" {
   name        = "${local.stage_prefix}-developer-policy"
-  description = "Full access to all vocanote stage resources"
+  description = "Full access to all ${var.project} stage resources"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -66,7 +96,7 @@ resource "aws_iam_policy" "stage_dev" {
           "ecr:ListImages",
           "ecr:GetRepositoryPolicy",
         ]
-        Resource = "arn:aws:ecr:${var.aws_region}:${var.aws_account_id}:repository/${local.stage_prefix}-*"
+        Resource = "arn:aws:ecr:${local.region}:${local.account_id}:repository/${local.stage_prefix}-*"
       },
 
       ############################################################################
@@ -104,10 +134,9 @@ resource "aws_iam_policy" "stage_dev" {
           "secretsmanager:GetResourcePolicy",
         ]
         Resource = [
-          "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:${var.project}/stage/*",
-          "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:vocuone/stage/*",
-          "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:${local.stage_prefix}-*",
-          "arn:aws:secretsmanager:${var.aws_region}:${var.aws_account_id}:secret:vocanote/stage/*",
+          "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:${var.project}/stage/*",
+          "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:${local.stage_prefix}-*",
+          "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:vocanote/stage/*",
         ]
       },
       {
@@ -120,7 +149,7 @@ resource "aws_iam_policy" "stage_dev" {
       },
 
       ############################################################################
-      # Bedrock — invoke stage agent + KB
+      # Bedrock — invoke stage agent + KB (IDs from remote state)
       ############################################################################
       {
         Sid    = "BedrockAgent"
@@ -135,13 +164,13 @@ resource "aws_iam_policy" "stage_dev" {
           "bedrock:RetrieveAndGenerate",
         ]
         Resource = [
-          "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:agent/${var.bedrock_agent_id}",
-          "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:agent-alias/${var.bedrock_agent_id}/*",
-          "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:knowledge-base/${var.bedrock_kb_id}",
-          "arn:aws:bedrock:${var.aws_region}::foundation-model/*",
+          "arn:aws:bedrock:${local.region}:${local.account_id}:agent/${local.agent_id}",
+          "arn:aws:bedrock:${local.region}:${local.account_id}:agent-alias/${local.agent_id}/*",
+          "arn:aws:bedrock:${local.region}:${local.account_id}:knowledge-base/${local.kb_id}",
+          "arn:aws:bedrock:${local.region}::foundation-model/*",
           "arn:aws:bedrock:*::foundation-model/*",
           "arn:aws:bedrock:*::inference-profile/*",
-          "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/*",
+          "arn:aws:bedrock:${local.region}:${local.account_id}:inference-profile/*",
         ]
       },
 
@@ -183,10 +212,10 @@ resource "aws_iam_policy" "stage_dev" {
           "logs:TailLogEvents",
         ]
         Resource = [
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:*${local.stage_prefix}*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:*stage*:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/ecs/${local.stage_prefix}-*:*",
-          "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:/ecs/${local.stage_prefix}-*",
+          "arn:aws:logs:${local.region}:${local.account_id}:log-group:*${local.stage_prefix}*",
+          "arn:aws:logs:${local.region}:${local.account_id}:log-group:*stage*:*",
+          "arn:aws:logs:${local.region}:${local.account_id}:log-group:/ecs/${local.stage_prefix}-*:*",
+          "arn:aws:logs:${local.region}:${local.account_id}:log-group:/ecs/${local.stage_prefix}-*",
         ]
       },
 
@@ -205,7 +234,7 @@ resource "aws_iam_policy" "stage_dev" {
           "codepipeline:StartPipelineExecution",
           "codepipeline:RetryStageExecution",
         ]
-        Resource = "arn:aws:codepipeline:${var.aws_region}:${var.aws_account_id}:${local.stage_prefix}-*"
+        Resource = "arn:aws:codepipeline:${local.region}:${local.account_id}:${local.stage_prefix}-*"
       },
       {
         Sid    = "CodeDeploy"
@@ -224,7 +253,7 @@ resource "aws_iam_policy" "stage_dev" {
       },
 
       ############################################################################
-      # RDS — describe stage DB
+      # RDS — describe stage DB + IAM auth connect
       ############################################################################
       {
         Sid    = "RDS"
@@ -236,8 +265,8 @@ resource "aws_iam_policy" "stage_dev" {
           "rds-db:connect",
         ]
         Resource = [
-          "arn:aws:rds:${var.aws_region}:${var.aws_account_id}:db:${local.stage_prefix}-*",
-          "arn:aws:rds-db:${var.aws_region}:${var.aws_account_id}:dbuser:*/*",
+          "arn:aws:rds:${local.region}:${local.account_id}:db:${local.stage_prefix}-*",
+          "arn:aws:rds-db:${local.region}:${local.account_id}:dbuser:*/*",
         ]
       },
 
@@ -274,15 +303,15 @@ resource "aws_iam_policy" "stage_dev" {
           "ssm:DescribeInstanceInformation",
         ]
         Resource = [
-          "arn:aws:ec2:${var.aws_region}:${var.aws_account_id}:instance/*",
-          "arn:aws:ssm:${var.aws_region}::document/AWS-StartPortForwardingSessionToRemoteHost",
-          "arn:aws:ssm:${var.aws_region}::document/AWS-StartSSHSession",
+          "arn:aws:ec2:${local.region}:${local.account_id}:instance/*",
+          "arn:aws:ssm:${local.region}::document/AWS-StartPortForwardingSessionToRemoteHost",
+          "arn:aws:ssm:${local.region}::document/AWS-StartSSHSession",
           "arn:aws:ssm:*:*:document/AWS-StartPortForwardingSessionToRemoteHost",
         ]
       },
 
       ############################################################################
-      # AWS Marketplace — enable Bedrock models (Anthropic Sonnet 4.5, etc.)
+      # AWS Marketplace — enable Bedrock models (Anthropic Claude, etc.)
       ############################################################################
       {
         Sid    = "Marketplace"
@@ -313,7 +342,7 @@ output "iam_user_name" {
 }
 
 output "access_key_id" {
-  description = "AWS Access Key ID — use in your app / CLI"
+  description = "AWS Access Key ID"
   value       = aws_iam_access_key.stage_dev.id
   sensitive   = true
 }
@@ -322,4 +351,19 @@ output "secret_access_key" {
   description = "AWS Secret Access Key"
   value       = aws_iam_access_key.stage_dev.secret
   sensitive   = true
+}
+
+output "aws_account_id" {
+  description = "AWS account ID (resolved dynamically)"
+  value       = local.account_id
+}
+
+output "bedrock_agent_id" {
+  description = "Bedrock Agent ID (from bedrock/stage remote state)"
+  value       = local.agent_id
+}
+
+output "bedrock_kb_id" {
+  description = "Bedrock KB ID (from bedrock/stage remote state)"
+  value       = local.kb_id
 }
