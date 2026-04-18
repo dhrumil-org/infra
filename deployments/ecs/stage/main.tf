@@ -364,7 +364,7 @@ module "ecs_service" {
 
   # Container health check (liveness probe) — restarts container if app hangs
   container_health_check = {
-    command     = ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+    command     = ["CMD-SHELL", "cat < /dev/tcp/localhost/8080 || exit 1"]
     interval    = 30
     timeout     = 5
     retries     = 3
