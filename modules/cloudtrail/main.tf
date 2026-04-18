@@ -43,6 +43,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
     id     = "archive-to-glacier"
     status = "Enabled"
 
+    filter {}
+
     transition {
       days          = 90
       storage_class = "GLACIER"
