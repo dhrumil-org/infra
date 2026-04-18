@@ -2,13 +2,13 @@ name: "Bedrock: Stage"
 
 on:
   push:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/bedrock/stage/**"
       - "modules/bedrock-kb/**"
       - "modules/bedrock-agent/**"
   pull_request:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/bedrock/stage/**"
       - "modules/bedrock-kb/**"

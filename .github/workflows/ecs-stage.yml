@@ -2,7 +2,7 @@ name: "ECS: Stage"
 
 on:
   push:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/ecs/stage/**"
       - "modules/vpc/**"
@@ -18,7 +18,7 @@ on:
       - "modules/bastion/**"
       - "modules/cloudtrail/**"
   pull_request:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/ecs/stage/**"
       - "modules/**"

@@ -2,12 +2,12 @@ name: "Shared: IAM"
 
 on:
   push:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/shared/iam/**"
       - "modules/iam-cicd/**"
   pull_request:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/shared/iam/**"
       - "modules/iam-cicd/**"

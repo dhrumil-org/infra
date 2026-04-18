@@ -2,14 +2,14 @@ name: "Frontend: Stage"
 
 on:
   push:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/frontend/stage/**"
       - "modules/s3-frontend/**"
       - "modules/cloudfront/**"
       - "modules/secrets-manager/**"
   pull_request:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/frontend/stage/**"
       - "modules/**"

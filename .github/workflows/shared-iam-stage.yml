@@ -2,11 +2,11 @@ name: "Shared: IAM Stage"
 
 on:
   push:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/shared/iam-stage/**"
   pull_request:
-    branches: [main]
+    branches: [stage]
     paths:
       - "deployments/shared/iam-stage/**"
   workflow_dispatch:
