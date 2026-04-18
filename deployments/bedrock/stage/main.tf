@@ -72,14 +72,14 @@ module "bedrock_kb" {
 # After ECS deploy: uncomment and terraform apply again
 ################################################################################
 
-# data "aws_iam_role" "ecs_task" {
-#   name = "${var.project}-${var.env}-app-task-role"
-# }
+data "aws_iam_role" "ecs_task" {
+  name = "${var.project}-${var.env}-app-task-role"
+}
 
-# resource "aws_iam_role_policy_attachment" "ecs_task_kb_access" {
-#   role       = data.aws_iam_role.ecs_task.name
-#   policy_arn = module.bedrock_kb.kb_access_policy_arn
-# }
+resource "aws_iam_role_policy_attachment" "ecs_task_kb_access" {
+  role       = data.aws_iam_role.ecs_task.name
+  policy_arn = module.bedrock_kb.kb_access_policy_arn
+}
 
 ################################################################################
 # Outputs

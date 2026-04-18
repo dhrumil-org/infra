@@ -468,7 +468,23 @@ data "aws_iam_policy_document" "kb_access" {
       "bedrock:InvokeModel",
       "bedrock:InvokeModelWithResponseStream",
     ]
-    resources = ["arn:aws:bedrock:${var.aws_region}::foundation-model/*"]
+    resources = [
+      # Standard foundation models
+      "arn:aws:bedrock:${var.aws_region}::foundation-model/*",
+      # Cross-region inference profiles (e.g. us.anthropic.claude-*)
+      "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/*",
+      "arn:aws:bedrock:*::inference-profile/*",
+    ]
+  }
+
+  statement {
+    sid    = "AllowInferenceProfileRead"
+    effect = "Allow"
+    actions = [
+      "bedrock:GetInferenceProfile",
+      "bedrock:ListInferenceProfiles",
+    ]
+    resources = ["*"]
   }
 }
 

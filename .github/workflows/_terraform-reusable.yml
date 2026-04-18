@@ -16,6 +16,11 @@ on:
         required: false
         type: string
         default: "1.10.0"
+      codepipeline_name:
+        description: "CodePipeline name to trigger after apply (ECS deployments only)"
+        required: false
+        type: string
+        default: ""
     secrets:
       AWS_ACCESS_KEY_ID:
         required: true
@@ -100,3 +105,14 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
+
+      - name: Trigger CodePipeline deployment
+        if: inputs.codepipeline_name != ''
+        run: |
+          echo "Triggering pipeline: ${{ inputs.codepipeline_name }}"
+          EXECUTION_ID=$(aws codepipeline start-pipeline-execution \
+            --name "${{ inputs.codepipeline_name }}" \
+            --query 'pipelineExecutionId' \
+            --output text)
+          echo "Pipeline execution started: $EXECUTION_ID"
+          echo "Monitor at: https://console.aws.amazon.com/codesuite/codepipeline/pipelines/${{ inputs.codepipeline_name }}/executions/$EXECUTION_ID"
