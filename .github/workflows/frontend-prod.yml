@@ -1,0 +1,26 @@
+name: "Frontend: Prod"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deployments/frontend/prod/**"
+      - "modules/s3-frontend/**"
+      - "modules/cloudfront/**"
+      - "modules/secrets-manager/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "deployments/frontend/prod/**"
+      - "modules/**"
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    uses: ./.github/workflows/_terraform-reusable.yml
+    with:
+      working_directory: deployments/frontend/prod
+      environment: prod
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
