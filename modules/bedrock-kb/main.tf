@@ -549,6 +549,8 @@ data "aws_iam_policy_document" "kb_access" {
     sid    = "AllowBedrockAgentInvoke"
     effect = "Allow"
     actions = [
+      # AWS checks both prefixes depending on SDK/API path used
+      "bedrock:InvokeAgent",
       "bedrock-agent-runtime:InvokeAgent",
       "bedrock-agent-runtime:Retrieve",
       "bedrock-agent-runtime:RetrieveAndGenerate",
