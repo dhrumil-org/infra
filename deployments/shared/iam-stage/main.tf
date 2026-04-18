@@ -1,50 +1,22 @@
 ################################################################################
 # IAM — Stage Developer User
 #
-# Full access to all vocanote-stage-* resources:
-#   - ECR (push/pull images)
-#   - ECS (describe services, tasks, trigger deployments)
-#   - Secrets Manager (read all stage secrets)
-#   - Bedrock (invoke agent + KB)
-#   - S3 (stage buckets: KB data, pipeline artifacts)
-#   - CloudWatch Logs (read stage logs)
-#   - CodePipeline / CodeDeploy (trigger deployments)
-#   - RDS (describe, connect via IAM auth)
-#   - KMS (decrypt stage keys)
-#   - SSM (bastion access)
-#   - Marketplace (subscribe to Bedrock models)
+# Unified naming-pattern access: all stage resources follow the pattern
+# {project}-stage-* so the policy uses wildcards instead of specific ARNs.
+# No hardcoded IDs, no remote state dependencies.
 ################################################################################
 
-################################################################################
-# Dynamic lookups — no hardcoded IDs
-################################################################################
-
-# Resolve AWS account ID from the current caller
 data "aws_caller_identity" "current" {}
-
-# Resolve region from the provider (avoids duplicating it in variables)
 data "aws_region" "current" {}
 
-# Pull Bedrock agent + KB IDs from the bedrock/stage remote state
-data "terraform_remote_state" "bedrock_stage" {
-  backend = "s3"
-  config = {
-    bucket = "vocuone-terraform-state-499290259511"
-    key    = "bedrock/stage/terraform.tfstate"
-    region = "us-east-1"
-  }
-}
-
 locals {
-  stage_prefix = "${var.project}-stage"
   account_id   = data.aws_caller_identity.current.account_id
   region       = data.aws_region.current.name
-  agent_id     = data.terraform_remote_state.bedrock_stage.outputs.agent_id
-  kb_id        = data.terraform_remote_state.bedrock_stage.outputs.knowledge_base_id
+  stage_prefix = "${var.project}-stage"
 }
 
 ################################################################################
-# IAM User
+# IAM User + Access Key
 ################################################################################
 
 resource "aws_iam_user" "stage_dev" {
@@ -61,27 +33,29 @@ resource "aws_iam_access_key" "stage_dev" {
   user = aws_iam_user.stage_dev.name
 }
 
+################################################################################
+# IAM Policy — unified naming-pattern access
+################################################################################
+
 resource "aws_iam_policy" "stage_dev" {
   name        = "${local.stage_prefix}-developer-policy"
-  description = "Full access to all ${var.project} stage resources"
+  description = "Full access to all ${local.stage_prefix}-* resources via naming pattern"
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
 
       ############################################################################
-      # ECR — push/pull stage images
+      # ECR — push/pull {project}-stage-* repositories
       ############################################################################
       {
-        Sid    = "ECR"
-        Effect = "Allow"
-        Action = [
-          "ecr:GetAuthorizationToken",
-        ]
+        Sid      = "ECRAuth"
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
         Resource = "*"
       },
       {
-        Sid    = "ECRStageRepo"
+        Sid    = "ECRStageRepos"
         Effect = "Allow"
         Action = [
           "ecr:BatchCheckLayerAvailability",
@@ -100,7 +74,7 @@ resource "aws_iam_policy" "stage_dev" {
       },
 
       ############################################################################
-      # ECS — describe cluster, services, tasks
+      # ECS — full access to stage cluster, services, tasks
       ############################################################################
       {
         Sid    = "ECS"
@@ -117,12 +91,14 @@ resource "aws_iam_policy" "stage_dev" {
           "ecs:RegisterTaskDefinition",
           "ecs:RunTask",
           "ecs:StopTask",
+          "ecs:UpdateService",
+          "ecs:TagResource",
         ]
         Resource = "*"
       },
 
       ############################################################################
-      # Secrets Manager — read all stage secrets
+      # Secrets Manager — all vocuone/stage/* and {project}/stage/* secrets
       ############################################################################
       {
         Sid    = "SecretsManagerRead"
@@ -132,50 +108,50 @@ resource "aws_iam_policy" "stage_dev" {
           "secretsmanager:DescribeSecret",
           "secretsmanager:ListSecretVersionIds",
           "secretsmanager:GetResourcePolicy",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:CreateSecret",
         ]
         Resource = [
+          "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:vocuone/stage/*",
+          "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:vocuone/prod/*",
           "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:${var.project}/stage/*",
           "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:${local.stage_prefix}-*",
-          "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:vocanote/stage/*",
         ]
       },
       {
-        Sid    = "SecretsManagerList"
-        Effect = "Allow"
-        Action = [
-          "secretsmanager:ListSecrets",
-        ]
+        Sid      = "SecretsManagerList"
+        Effect   = "Allow"
+        Action   = "secretsmanager:ListSecrets"
         Resource = "*"
       },
 
       ############################################################################
-      # Bedrock — invoke stage agent + KB (IDs from remote state)
+      # Bedrock — all stage agents, KBs, and foundation models
       ############################################################################
       {
-        Sid    = "BedrockAgent"
+        Sid    = "Bedrock"
         Effect = "Allow"
         Action = [
-          "bedrock-agent-runtime:InvokeAgent",
-          "bedrock-agent-runtime:Retrieve",
-          "bedrock-agent-runtime:RetrieveAndGenerate",
           "bedrock:InvokeModel",
           "bedrock:InvokeModelWithResponseStream",
           "bedrock:Retrieve",
           "bedrock:RetrieveAndGenerate",
+          "bedrock-agent-runtime:InvokeAgent",
+          "bedrock-agent-runtime:Retrieve",
+          "bedrock-agent-runtime:RetrieveAndGenerate",
         ]
         Resource = [
-          "arn:aws:bedrock:${local.region}:${local.account_id}:agent/${local.agent_id}",
-          "arn:aws:bedrock:${local.region}:${local.account_id}:agent-alias/${local.agent_id}/*",
-          "arn:aws:bedrock:${local.region}:${local.account_id}:knowledge-base/${local.kb_id}",
-          "arn:aws:bedrock:${local.region}::foundation-model/*",
+          "arn:aws:bedrock:${local.region}:${local.account_id}:agent/*",
+          "arn:aws:bedrock:${local.region}:${local.account_id}:agent-alias/*",
+          "arn:aws:bedrock:${local.region}:${local.account_id}:knowledge-base/*",
+          "arn:aws:bedrock:${local.region}:${local.account_id}:inference-profile/*",
           "arn:aws:bedrock:*::foundation-model/*",
           "arn:aws:bedrock:*::inference-profile/*",
-          "arn:aws:bedrock:${local.region}:${local.account_id}:inference-profile/*",
         ]
       },
 
       ############################################################################
-      # S3 — stage buckets (KB data sources, pipeline artifacts)
+      # S3 — all {project}-stage-* buckets
       ############################################################################
       {
         Sid    = "S3StageBuckets"
@@ -195,7 +171,7 @@ resource "aws_iam_policy" "stage_dev" {
       },
 
       ############################################################################
-      # CloudWatch Logs — read stage logs
+      # CloudWatch Logs — all stage log groups
       ############################################################################
       {
         Sid    = "CloudWatchLogs"
@@ -213,14 +189,14 @@ resource "aws_iam_policy" "stage_dev" {
         ]
         Resource = [
           "arn:aws:logs:${local.region}:${local.account_id}:log-group:*${local.stage_prefix}*",
-          "arn:aws:logs:${local.region}:${local.account_id}:log-group:*stage*:*",
-          "arn:aws:logs:${local.region}:${local.account_id}:log-group:/ecs/${local.stage_prefix}-*:*",
+          "arn:aws:logs:${local.region}:${local.account_id}:log-group:*${local.stage_prefix}*:*",
           "arn:aws:logs:${local.region}:${local.account_id}:log-group:/ecs/${local.stage_prefix}-*",
+          "arn:aws:logs:${local.region}:${local.account_id}:log-group:/ecs/${local.stage_prefix}-*:*",
         ]
       },
 
       ############################################################################
-      # CodePipeline + CodeDeploy — trigger stage deployments
+      # CodePipeline + CodeDeploy — all {project}-stage-* pipelines
       ############################################################################
       {
         Sid    = "CodePipeline"
@@ -246,6 +222,7 @@ resource "aws_iam_policy" "stage_dev" {
           "codedeploy:ListDeployments",
           "codedeploy:ListDeploymentGroups",
           "codedeploy:CreateDeployment",
+          "codedeploy:StopDeployment",
           "codedeploy:GetDeploymentConfig",
           "codedeploy:RegisterApplicationRevision",
         ]
@@ -253,7 +230,7 @@ resource "aws_iam_policy" "stage_dev" {
       },
 
       ############################################################################
-      # RDS — describe stage DB + IAM auth connect
+      # RDS — all {project}-stage-* instances + IAM auth
       ############################################################################
       {
         Sid    = "RDS"
@@ -271,7 +248,7 @@ resource "aws_iam_policy" "stage_dev" {
       },
 
       ############################################################################
-      # KMS — decrypt stage secrets and data
+      # KMS — all {project}-stage-* key aliases
       ############################################################################
       {
         Sid    = "KMS"
@@ -290,7 +267,7 @@ resource "aws_iam_policy" "stage_dev" {
       },
 
       ############################################################################
-      # SSM — connect to stage bastion via Session Manager
+      # SSM — bastion access via Session Manager
       ############################################################################
       {
         Sid    = "SSMBastion"
@@ -311,7 +288,7 @@ resource "aws_iam_policy" "stage_dev" {
       },
 
       ############################################################################
-      # AWS Marketplace — enable Bedrock models (Anthropic Claude, etc.)
+      # Marketplace — subscribe to Bedrock models
       ############################################################################
       {
         Sid    = "Marketplace"
@@ -351,19 +328,4 @@ output "secret_access_key" {
   description = "AWS Secret Access Key"
   value       = aws_iam_access_key.stage_dev.secret
   sensitive   = true
-}
-
-output "aws_account_id" {
-  description = "AWS account ID (resolved dynamically)"
-  value       = local.account_id
-}
-
-output "bedrock_agent_id" {
-  description = "Bedrock Agent ID (from bedrock/stage remote state)"
-  value       = local.agent_id
-}
-
-output "bedrock_kb_id" {
-  description = "Bedrock KB ID (from bedrock/stage remote state)"
-  value       = local.kb_id
 }
