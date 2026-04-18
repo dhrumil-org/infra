@@ -499,6 +499,8 @@ data "aws_iam_policy_document" "kb_access" {
         "s3:DeleteObject",
         "s3:ListBucket",
         "s3:GetBucketLocation",
+        "s3:GetBucketCORS",
+        "s3:PutBucketCORS",
       ]
       resources = [
         aws_s3_bucket.primary[0].arn,
@@ -518,6 +520,8 @@ data "aws_iam_policy_document" "kb_access" {
         "s3:DeleteObject",
         "s3:ListBucket",
         "s3:GetBucketLocation",
+        "s3:GetBucketCORS",
+        "s3:PutBucketCORS",
       ]
       resources = [
         aws_s3_bucket.secondary[0].arn,
@@ -537,6 +541,8 @@ data "aws_iam_policy_document" "kb_access" {
         "s3:DeleteObject",
         "s3:ListBucket",
         "s3:GetBucketLocation",
+        "s3:GetBucketCORS",
+        "s3:PutBucketCORS",
       ]
       resources = [
         aws_s3_bucket.multimodal[0].arn,
