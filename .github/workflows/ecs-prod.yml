@@ -23,6 +23,7 @@ on:
       - "deployments/ecs/prod/**"
       - "modules/**"
   workflow_dispatch:
+concurrency:  group: ecs-prod  cancel-in-progress: false
 
 jobs:
   terraform:

@@ -14,6 +14,7 @@ on:
       - "deployments/frontend/stage/**"
       - "modules/**"
   workflow_dispatch:
+concurrency:  group: frontend-stage  cancel-in-progress: false
 
 jobs:
   terraform:

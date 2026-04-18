@@ -23,6 +23,7 @@ on:
       - "deployments/ecs/stage/**"
       - "modules/**"
   workflow_dispatch:
+concurrency:  group: ecs-stage  cancel-in-progress: false
 
 jobs:
   terraform:

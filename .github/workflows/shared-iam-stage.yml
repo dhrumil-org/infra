@@ -10,6 +10,7 @@ on:
     paths:
       - "deployments/shared/iam-stage/**"
   workflow_dispatch:
+concurrency:  group: shared-iam-stage  cancel-in-progress: false
 
 jobs:
   terraform:

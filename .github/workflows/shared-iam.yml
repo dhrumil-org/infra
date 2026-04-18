@@ -12,6 +12,7 @@ on:
       - "deployments/shared/iam/**"
       - "modules/iam-cicd/**"
   workflow_dispatch:
+concurrency:  group: shared-iam  cancel-in-progress: false
 
 jobs:
   terraform:

@@ -14,6 +14,7 @@ on:
       - "deployments/admin/prod/**"
       - "modules/**"
   workflow_dispatch:
+concurrency:  group: admin-prod  cancel-in-progress: false
 
 jobs:
   terraform:
