@@ -38,7 +38,7 @@ locals {
       value = var.app_email_redirect_url
     },
     {
-      name  = "APP_CORS_ALLOWED_ORIGIN_PATTERNS"
+      name  = "APP_CORS_ALLOWEDORIGINPATTERNS"
       value = "https://app.vocanote.ai,https://vocanote.ai,http://localhost:5173,http://localhost:3000,chrome-extension://*"
     },
     {
@@ -50,15 +50,15 @@ locals {
       value = "true"
     },
     {
-      name  = "APP_COOKIE_SAME_SITE"
+      name  = "APP_COOKIE_SAMESITE"
       value = "Lax"
     },
     {
-      name  = "APP_COOKIE_ACCESS_TTL"
+      name  = "APP_COOKIE_ACCESSTTL"
       value = "PT1H"
     },
     {
-      name  = "APP_COOKIE_REFRESH_TTL"
+      name  = "APP_COOKIE_REFRESHTTL"
       value = "P7D"
     },
     {
