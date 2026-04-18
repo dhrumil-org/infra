@@ -38,6 +38,30 @@ locals {
       value = var.app_email_redirect_url
     },
     {
+      name  = "APP_CORS_ALLOWED_ORIGIN_PATTERNS"
+      value = "https://app.vocanote.ai,https://vocanote.ai,http://localhost:5173,http://localhost:3000,chrome-extension://*"
+    },
+    {
+      name  = "APP_COOKIE_DOMAIN"
+      value = ""
+    },
+    {
+      name  = "APP_COOKIE_SECURE"
+      value = "true"
+    },
+    {
+      name  = "APP_COOKIE_SAME_SITE"
+      value = "Lax"
+    },
+    {
+      name  = "APP_COOKIE_ACCESS_TTL"
+      value = "PT1H"
+    },
+    {
+      name  = "APP_COOKIE_REFRESH_TTL"
+      value = "P7D"
+    },
+    {
       name  = "GOOGLE_CALENDAR_ENABLED"
       value = "false"
     },
