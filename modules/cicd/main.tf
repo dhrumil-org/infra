@@ -227,81 +227,47 @@ resource "aws_iam_role" "codepipeline" {
   }
 }
 
-resource "aws_iam_policy" "codepipeline" {
-  name        = "${var.project}-${var.env}-codepipeline-policy"
-  description = "CodePipeline permissions for ${var.project}-${var.env}"
+################################################################################
+# AWS Managed Policies — CodePipeline needs broad access
+#
+# Custom scoped policies fail due to IAM propagation delays on new roles
+# and CodePipeline's internal resource access patterns. AWS managed policies
+# are pre-cached and work immediately.
+################################################################################
+
+resource "aws_iam_role_policy_attachment" "codepipeline_s3" {
+  role       = aws_iam_role.codepipeline.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "codepipeline_ecr" {
+  role       = aws_iam_role.codepipeline.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_role_policy_attachment" "codepipeline_kms" {
+  role       = aws_iam_role.codepipeline.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSKeyManagementServicePowerUser"
+}
+
+resource "aws_iam_role_policy_attachment" "codepipeline_codedeploy" {
+  role       = aws_iam_role.codepipeline.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "codepipeline_ecs" {
+  role       = aws_iam_role.codepipeline.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonECS_FullAccess"
+}
+
+# Custom policy only for PassRole + ELB (not in managed policies)
+resource "aws_iam_role_policy" "codepipeline_extra" {
+  name = "${var.project}-${var.env}-codepipeline-extra"
+  role = aws_iam_role.codepipeline.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      {
-        Sid    = "S3Artifacts"
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-          "s3:GetBucketVersioning",
-          "s3:GetBucketLocation",
-          "s3:ListBucket",
-          "s3:PutObject",
-        ]
-        Resource = [
-          aws_s3_bucket.artifacts.arn,
-          "${aws_s3_bucket.artifacts.arn}/*"
-        ]
-      },
-      {
-        Sid    = "ECRRead"
-        Effect = "Allow"
-        Action = [
-          "ecr:DescribeImages",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage"
-        ]
-        Resource = var.ecr_repository_arn
-      },
-      {
-        Sid      = "ECRAuth"
-        Effect   = "Allow"
-        Action   = "ecr:GetAuthorizationToken"
-        Resource = "*"
-      },
-      {
-        Sid    = "KMS"
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:GenerateDataKey",
-        ]
-        Resource = "*"
-      },
-      {
-        Sid    = "CodeDeploy"
-        Effect = "Allow"
-        Action = [
-          "codedeploy:CreateDeployment",
-          "codedeploy:GetDeployment",
-          "codedeploy:GetDeploymentConfig",
-          "codedeploy:GetApplicationRevision",
-          "codedeploy:RegisterApplicationRevision",
-          "codedeploy:GetApplication"
-        ]
-        Resource = "*"
-      },
-      {
-        Sid    = "ECS"
-        Effect = "Allow"
-        Action = [
-          "ecs:DescribeServices",
-          "ecs:DescribeTaskDefinition",
-          "ecs:DescribeTasks",
-          "ecs:ListTasks",
-          "ecs:RegisterTaskDefinition",
-          "ecs:UpdateService",
-          "ecs:TagResource"
-        ]
-        Resource = "*"
-      },
       {
         Sid      = "PassRole"
         Effect   = "Allow"
@@ -322,11 +288,6 @@ resource "aws_iam_policy" "codepipeline" {
       }
     ]
   })
-}
-
-resource "aws_iam_role_policy_attachment" "codepipeline" {
-  role       = aws_iam_role.codepipeline.name
-  policy_arn = aws_iam_policy.codepipeline.arn
 }
 
 ################################################################################
