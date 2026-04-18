@@ -92,6 +92,20 @@ locals {
 }
 
 ################################################################################
+# CloudTrail — API audit trail (HIPAA requirement)
+################################################################################
+
+module "cloudtrail" {
+  source = "../../../modules/cloudtrail"
+
+  env            = var.env
+  project        = var.project
+  aws_region     = var.aws_region
+  aws_account_id = var.aws_account_id
+  kms_key_arn    = module.kms.key_arns["logs"]
+}
+
+################################################################################
 # KMS Keys — Encryption at rest (HIPAA)
 ################################################################################
 
@@ -103,7 +117,7 @@ module "kms" {
 
   keys = {
     logs = {
-      description = "KMS key for CloudWatch Logs encryption"
+      description = "KMS key for CloudWatch Logs + CloudTrail encryption"
       policy = jsonencode({
         Version = "2012-10-17"
         Statement = [
@@ -133,6 +147,37 @@ module "kms" {
             Condition = {
               ArnLike = {
                 "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${var.aws_region}:${var.aws_account_id}:log-group:*"
+              }
+            }
+          },
+          {
+            Sid    = "AllowCloudTrail"
+            Effect = "Allow"
+            Principal = {
+              Service = "cloudtrail.amazonaws.com"
+            }
+            Action = [
+              "kms:GenerateDataKey*",
+              "kms:DescribeKey"
+            ]
+            Resource = "*"
+            Condition = {
+              StringEquals = {
+                "aws:SourceArn" = "arn:aws:cloudtrail:${var.aws_region}:${var.aws_account_id}:trail/${var.project}-${var.env}-trail"
+              }
+            }
+          },
+          {
+            Sid    = "AllowCloudTrailDecrypt"
+            Effect = "Allow"
+            Principal = {
+              AWS = "arn:aws:iam::${var.aws_account_id}:root"
+            }
+            Action   = "kms:Decrypt"
+            Resource = "*"
+            Condition = {
+              "Null" = {
+                "kms:EncryptionContext:aws:cloudtrail:arn" = "false"
               }
             }
           }
@@ -539,4 +584,18 @@ output "db_access_policy_arn" {
 output "db_access_role_arn" {
   description = "IAM role ARN for DB access — can be assumed by users"
   value       = module.rds.db_access_role_arn
+}
+
+################################################################################
+# CloudTrail Outputs
+################################################################################
+
+output "cloudtrail_arn" {
+  description = "CloudTrail trail ARN"
+  value       = module.cloudtrail.trail_arn
+}
+
+output "cloudtrail_bucket" {
+  description = "S3 bucket for CloudTrail logs (7-year retention)"
+  value       = module.cloudtrail.log_bucket_name
 }
