@@ -38,8 +38,20 @@ locals {
       value = var.app_email_redirect_url
     },
     {
+      name  = "GOOGLE_CALENDAR_ENABLED"
+      value = "false"
+    },
+    {
+      name  = "AWS_S3_BUCKET_NAME"
+      value = data.terraform_remote_state.bedrock_stage.outputs.primary_bucket_name
+    },
+    {
       name  = "BEDROCK_KB_ID"
       value = data.terraform_remote_state.bedrock_stage.outputs.knowledge_base_id
+    },
+    {
+      name  = "BEDROCK_DATASOURCE_ID"
+      value = data.terraform_remote_state.bedrock_stage.outputs.primary_data_source_id
     },
     {
       name  = "BEDROCK_AGENT_ID"
