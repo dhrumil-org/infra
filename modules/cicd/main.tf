@@ -227,9 +227,9 @@ resource "aws_iam_role" "codepipeline" {
   }
 }
 
-resource "aws_iam_role_policy" "codepipeline" {
-  name = "${var.project}-${var.env}-codepipeline-policy"
-  role = aws_iam_role.codepipeline.id
+resource "aws_iam_policy" "codepipeline" {
+  name        = "${var.project}-${var.env}-codepipeline-policy"
+  description = "CodePipeline permissions for ${var.project}-${var.env}"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -322,6 +322,11 @@ resource "aws_iam_role_policy" "codepipeline" {
       }
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "codepipeline" {
+  role       = aws_iam_role.codepipeline.name
+  policy_arn = aws_iam_policy.codepipeline.arn
 }
 
 ################################################################################
