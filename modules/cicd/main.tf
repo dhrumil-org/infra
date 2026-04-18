@@ -267,6 +267,15 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = "*"
       },
       {
+        Sid    = "KMS"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:GenerateDataKey",
+        ]
+        Resource = "*"
+      },
+      {
         Sid    = "CodeDeploy"
         Effect = "Allow"
         Action = [
