@@ -486,6 +486,63 @@ data "aws_iam_policy_document" "kb_access" {
     ]
     resources = ["*"]
   }
+
+  dynamic "statement" {
+    for_each = var.create_primary_bucket ? [1] : []
+    content {
+      sid    = "AllowS3PrimaryBucketAccess"
+      effect = "Allow"
+      actions = [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+      ]
+      resources = [
+        aws_s3_bucket.primary[0].arn,
+        "${aws_s3_bucket.primary[0].arn}/*",
+      ]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = var.enable_secondary_data_source ? [1] : []
+    content {
+      sid    = "AllowS3SecondaryBucketAccess"
+      effect = "Allow"
+      actions = [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+      ]
+      resources = [
+        aws_s3_bucket.secondary[0].arn,
+        "${aws_s3_bucket.secondary[0].arn}/*",
+      ]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = var.create_multimodal_bucket ? [1] : []
+    content {
+      sid    = "AllowS3MultimodalBucketAccess"
+      effect = "Allow"
+      actions = [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+      ]
+      resources = [
+        aws_s3_bucket.multimodal[0].arn,
+        "${aws_s3_bucket.multimodal[0].arn}/*",
+      ]
+    }
+  }
 }
 
 resource "aws_iam_policy" "kb_access" {
