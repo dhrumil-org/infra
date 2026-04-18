@@ -42,7 +42,7 @@ resource "aws_lb_target_group" "blue" {
     port                = "traffic-port"
     protocol            = "HTTP"
     healthy_threshold   = 3
-    unhealthy_threshold = 3
+    unhealthy_threshold = 5
     timeout             = 10
     interval            = 30
     matcher             = "200-299"
@@ -68,7 +68,7 @@ resource "aws_lb_target_group" "green" {
     port                = "traffic-port"
     protocol            = "HTTP"
     healthy_threshold   = 3
-    unhealthy_threshold = 3
+    unhealthy_threshold = 5
     timeout             = 10
     interval            = 30
     matcher             = "200-299"

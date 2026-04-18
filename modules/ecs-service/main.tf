@@ -71,7 +71,8 @@ resource "aws_ecs_service" "this" {
   name            = "${var.project}-${var.env}-${var.service_name}"
   cluster         = var.ecs_cluster_id
   task_definition = aws_ecs_task_definition.this.arn
-  desired_count   = var.desired_count
+  desired_count                      = var.desired_count
+  health_check_grace_period_seconds  = var.health_check_grace_period
 
   capacity_provider_strategy {
     capacity_provider = var.capacity_provider_name

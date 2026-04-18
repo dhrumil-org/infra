@@ -79,6 +79,12 @@ variable "desired_count" {
   default     = 1
 }
 
+variable "health_check_grace_period" {
+  description = "Seconds to ignore health check failures after task start (must exceed app startup time)"
+  type        = number
+  default     = 150
+}
+
 variable "log_kms_key_arn" {
   description = "KMS key ARN for CloudWatch log encryption"
   type        = string
