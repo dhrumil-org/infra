@@ -469,8 +469,9 @@ data "aws_iam_policy_document" "kb_access" {
       "bedrock:InvokeModelWithResponseStream",
     ]
     resources = [
-      # Standard foundation models
-      "arn:aws:bedrock:${var.aws_region}::foundation-model/*",
+      # Foundation models — wildcard region because cross-region inference
+      # profiles route internally to us-east-1, us-east-2, us-west-2, etc.
+      "arn:aws:bedrock:*::foundation-model/*",
       # Cross-region inference profiles (e.g. us.anthropic.claude-*)
       "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/*",
       "arn:aws:bedrock:*::inference-profile/*",
