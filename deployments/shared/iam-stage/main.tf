@@ -29,7 +29,7 @@ data "aws_region" "current" {}
 data "terraform_remote_state" "bedrock_stage" {
   backend = "s3"
   config = {
-    bucket = "vocanote-terraform-state-499290259511"
+    bucket = "vocuone-terraform-state-499290259511"
     key    = "bedrock/stage/terraform.tfstate"
     region = "us-east-1"
   }
