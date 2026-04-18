@@ -36,7 +36,9 @@ resource "aws_codedeploy_deployment_config" "canary" {
 resource "aws_codedeploy_deployment_group" "this" {
   app_name               = aws_codedeploy_app.this.name
   deployment_group_name  = "${var.project}-${var.env}-${var.service_name}-dg"
-  deployment_config_name = aws_codedeploy_deployment_config.canary.deployment_config_name
+  # AllAtOnce: shifts 100% traffic immediately once green is healthy.
+  # Switch to canary config for prod when blue side is a real app.
+  deployment_config_name = "CodeDeployDefault.ECSAllAtOnce"
   service_role_arn       = aws_iam_role.codedeploy.arn
 
   auto_rollback_configuration {
