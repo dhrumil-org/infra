@@ -316,6 +316,15 @@ module "ecs_service" {
 
   # Secrets the app reads at runtime via AWS SDK (not injected as env vars)
   task_secret_arns = var.task_secret_arns
+
+  # Container health check (liveness probe) — restarts container if app hangs
+  container_health_check = {
+    command     = ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+    interval    = 30
+    timeout     = 5
+    retries     = 3
+    startPeriod = 120
+  }
 }
 
 ################################################################################
