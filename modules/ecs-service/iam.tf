@@ -83,16 +83,48 @@ resource "aws_iam_role_policy" "task" {
     Statement = concat(
       [
         {
+          Sid    = "CloudWatchLogs"
           Effect = "Allow"
           Action = [
             "logs:CreateLogStream",
             "logs:PutLogEvents"
           ]
           Resource = "${aws_cloudwatch_log_group.this.arn}:*"
+        },
+        {
+          Sid    = "Transcribe"
+          Effect = "Allow"
+          Action = [
+            "transcribe:StartTranscriptionJob",
+            "transcribe:GetTranscriptionJob",
+            "transcribe:ListTranscriptionJobs",
+            "transcribe:DeleteTranscriptionJob",
+            "transcribe:StartMedicalTranscriptionJob",
+            "transcribe:GetMedicalTranscriptionJob",
+          ]
+          Resource = "*"
+        },
+        {
+          Sid    = "S3TranscribeAccess"
+          Effect = "Allow"
+          Action = [
+            "s3:GetObject",
+            "s3:PutObject",
+            "s3:DeleteObject",
+            "s3:ListBucket",
+            "s3:GetBucketLocation",
+            "s3:GetBucketCORS",
+            "s3:PutBucketCORS",
+          ]
+          Resource = [
+            "arn:aws:s3:::${var.project}-${var.env}-*",
+            "arn:aws:s3:::${var.project}-${var.env}-*/*",
+          ]
         }
       ],
       length(var.task_secret_arns) > 0 ? [
         {
+          Sid    = "SecretsManager"
           Effect = "Allow"
           Action = [
             "secretsmanager:GetSecretValue",
