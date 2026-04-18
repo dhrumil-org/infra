@@ -543,6 +543,21 @@ data "aws_iam_policy_document" "kb_access" {
       ]
     }
   }
+
+  statement {
+    sid    = "AllowBedrockAgentInvoke"
+    effect = "Allow"
+    actions = [
+      "bedrock-agent-runtime:InvokeAgent",
+      "bedrock-agent-runtime:Retrieve",
+      "bedrock-agent-runtime:RetrieveAndGenerate",
+    ]
+    resources = [
+      "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:agent/*",
+      "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:agent-alias/*",
+      "arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:knowledge-base/*",
+    ]
+  }
 }
 
 resource "aws_iam_policy" "kb_access" {
