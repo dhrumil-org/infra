@@ -41,7 +41,7 @@ resource "aws_lb_target_group" "blue" {
     path                = var.health_check_path
     port                = "traffic-port"
     protocol            = "HTTP"
-    healthy_threshold   = 3
+    healthy_threshold   = 2
     unhealthy_threshold = 5
     timeout             = 10
     interval            = 30
@@ -67,7 +67,7 @@ resource "aws_lb_target_group" "green" {
     path                = var.health_check_path
     port                = "traffic-port"
     protocol            = "HTTP"
-    healthy_threshold   = 3
+    healthy_threshold   = 2
     unhealthy_threshold = 5
     timeout             = 10
     interval            = 30

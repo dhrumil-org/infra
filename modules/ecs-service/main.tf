@@ -29,8 +29,6 @@ resource "aws_ecs_task_definition" "this" {
     {
       name      = var.service_name
       image     = var.container_image
-      cpu       = var.task_cpu
-      memory    = var.task_memory
       essential = true
 
       portMappings = [

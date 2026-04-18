@@ -12,32 +12,12 @@ resource "aws_codedeploy_app" "this" {
 }
 
 ################################################################################
-# Deployment Configuration — Canary 10% for 15 minutes
-################################################################################
-
-resource "aws_codedeploy_deployment_config" "canary" {
-  deployment_config_name = "${var.project}-${var.env}-canary-10-15"
-  compute_platform       = "ECS"
-
-  traffic_routing_config {
-    type = "TimeBasedCanary"
-
-    time_based_canary {
-      interval   = 15
-      percentage = 10
-    }
-  }
-}
-
-################################################################################
-# Deployment Group
+# Deployment Group — Blue/Green with AllAtOnce traffic shift
 ################################################################################
 
 resource "aws_codedeploy_deployment_group" "this" {
   app_name               = aws_codedeploy_app.this.name
   deployment_group_name  = "${var.project}-${var.env}-${var.service_name}-dg"
-  # AllAtOnce: shifts 100% traffic immediately once green is healthy.
-  # Switch to canary config for prod when blue side is a real app.
   deployment_config_name = "CodeDeployDefault.ECSAllAtOnce"
   service_role_arn       = aws_iam_role.codedeploy.arn
 
@@ -53,7 +33,7 @@ resource "aws_codedeploy_deployment_group" "this" {
 
     terminate_blue_instances_on_deployment_success {
       action                           = "TERMINATE"
-      termination_wait_time_in_minutes = 0
+      termination_wait_time_in_minutes = 5
     }
   }
 

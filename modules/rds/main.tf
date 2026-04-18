@@ -91,7 +91,7 @@ resource "aws_secretsmanager_secret" "db" {
   name                    = "${var.project}/${var.env}/rds/credentials"
   description             = "RDS master credentials for ${var.project}-${var.env}"
   kms_key_id              = var.secrets_kms_key_arn
-  recovery_window_in_days = 7
+  recovery_window_in_days = var.recovery_window_in_days
 
   tags = {
     Name = "${var.project}-${var.env}-rds-credentials"
@@ -121,7 +121,7 @@ resource "aws_secretsmanager_secret" "app_db" {
   name                    = var.app_secret_name
   description             = "DB credentials for ${var.project}-${var.env} application (IAM auth schema)"
   kms_key_id              = var.secrets_kms_key_arn
-  recovery_window_in_days = 7
+  recovery_window_in_days = var.recovery_window_in_days
 
   tags = {
     Name = "${var.project}-${var.env}-app-db-secret"

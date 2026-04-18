@@ -196,3 +196,14 @@ variable "app_email_redirect_url" {
   description = "Frontend URL the app redirects to after email verification"
   type        = string
 }
+
+variable "app_cors_allowed_origins" {
+  description = "Comma-separated CORS allowed origin patterns"
+  type        = string
+}
+
+variable "secrets_recovery_window_in_days" {
+  description = "Days before a deleted secret is permanently removed (0 for stage, 7+ for prod)"
+  type        = number
+  default     = 7
+}

@@ -14,11 +14,10 @@ instance_type        = "t3.medium"
 asg_min_size         = 1
 asg_max_size         = 3
 asg_desired_capacity = 1
-container_image      = "499290259511.dkr.ecr.us-east-1.amazonaws.com/vocanote-stage-app:latest"
+container_image      = "vocanote-stage-app:latest"
 container_port       = 8080
-
 task_cpu             = 512
-task_memory          = 1024
+task_memory          = 2048
 
 # ALB
 acm_certificate_arn = "arn:aws:acm:us-east-1:499290259511:certificate/76546c9c-daec-44d0-9544-a2ff36dac831"
@@ -40,16 +39,18 @@ db_apply_immediately       = true
 app_db_secret_name = "vocuone/stage/db"
 app_db_username    = "vocanote_service_user"
 
-# Spring profile — use "dev" for password auth (bypass RDS IAM), "stage" for IAM token auth
+# Spring profile — "stage" for IAM token auth, "dev" for password auth
 spring_profile = "stage"
 
 # App environment variables
-app_email_redirect_url = "https://your-frontend-url.com"
+app_email_redirect_url   = "https://app.vocanote.ai"
+app_cors_allowed_origins = "https://app.vocanote.ai,https://vocanote.ai"
 
 # Secrets the app reads at runtime via AWS SDK
-# Add ARNs for every secret your app calls GetSecretValue on
 task_secret_arns = [
-  "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/prod/*",
   "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/stage/*",
-  "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocanote/stage/*",
+  "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/prod/*",
 ]
+
+# Secrets Manager — 0 allows clean destroy/recreate without 7-day wait
+secrets_recovery_window_in_days = 0

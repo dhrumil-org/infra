@@ -36,11 +36,11 @@ resource "aws_vpc_security_group_ingress_rule" "alb_http" {
 
 resource "aws_vpc_security_group_ingress_rule" "alb_test" {
   security_group_id = aws_security_group.alb.id
-  description       = "Test listener for CodeDeploy canary validation"
+  description       = "Test listener for CodeDeploy canary validation (VPC only)"
   from_port         = 8443
   to_port           = 8443
   ip_protocol       = "tcp"
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = var.vpc_cidr
 }
 
 resource "aws_vpc_security_group_egress_rule" "alb_to_ecs" {

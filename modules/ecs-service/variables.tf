@@ -82,7 +82,7 @@ variable "desired_count" {
 variable "health_check_grace_period" {
   description = "Seconds to ignore health check failures after task start (must exceed app startup time)"
   type        = number
-  default     = 150
+  default     = 300
 }
 
 variable "log_kms_key_arn" {
@@ -111,7 +111,7 @@ variable "secrets" {
 variable "secrets_arns" {
   description = "ARNs of secrets the execution role can access"
   type        = list(string)
-  default     = ["arn:aws:secretsmanager:*:*:secret:*"]
+  default     = []
 }
 
 variable "task_secret_arns" {

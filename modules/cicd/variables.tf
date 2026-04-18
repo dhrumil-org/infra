@@ -101,3 +101,12 @@ variable "environment_variables" {
   }))
   default = []
 }
+
+variable "secrets" {
+  description = "Secrets from Secrets Manager/Parameter Store injected into the container"
+  type = list(object({
+    name      = string
+    valueFrom = string
+  }))
+  default = []
+}

@@ -16,6 +16,9 @@ data "terraform_remote_state" "bedrock_stage" {
 ################################################################################
 
 locals {
+  # Build full ECR image URI dynamically from account ID + region
+  container_image = "${var.aws_account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/${var.container_image}"
+
   app_environment_variables = [
     {
       name  = "SPRING_PROFILES_ACTIVE"
@@ -39,7 +42,7 @@ locals {
     },
     {
       name  = "APP_CORS_ALLOWEDORIGINPATTERNS"
-      value = "https://app.vocanote.ai,https://vocanote.ai,http://localhost:5173,http://localhost:3000,chrome-extension://*"
+      value = var.app_cors_allowed_origins
     },
     {
       name  = "APP_COOKIE_DOMAIN"
@@ -290,7 +293,7 @@ module "ecs_service" {
   private_subnet_ids     = module.vpc.private_subnet_ids
   ecs_security_group_id  = module.security_groups.ecs_security_group_id
   target_group_arn       = module.alb.blue_target_group_arn
-  container_image        = var.container_image
+  container_image        = local.container_image
   container_port         = var.container_port
   task_cpu               = var.task_cpu
   task_memory            = var.task_memory
@@ -308,7 +311,8 @@ module "ecs_service" {
   scale_in_cooldown        = 300
   scale_out_cooldown       = 120
 
-  kms_key_arns = [module.kms.key_arns["logs"], module.kms.key_arns["ecr"]]
+  kms_key_arns  = [module.kms.key_arns["logs"], module.kms.key_arns["ecr"], module.kms.key_arns["secrets"]]
+  secrets_arns  = var.task_secret_arns
 
   # Secrets the app reads at runtime via AWS SDK (not injected as env vars)
   task_secret_arns = var.task_secret_arns
@@ -355,6 +359,9 @@ module "rds" {
   create_app_secret = true
   app_secret_name   = var.app_db_secret_name
   app_db_username   = var.app_db_username
+
+  # Secrets Manager — 0 for stage (clean destroy/recreate), 7+ for prod
+  recovery_window_in_days = var.secrets_recovery_window_in_days
 }
 
 ################################################################################
@@ -419,6 +426,7 @@ module "cicd" {
   container_port        = var.container_port
   log_group             = module.ecs_service.log_group_name
   environment_variables = local.app_environment_variables
+  secrets               = []
 }
 
 ################################################################################

@@ -10,8 +10,6 @@
     {
       "name": "${container_name}",
       "image": "<IMAGE1_NAME>",
-      "cpu": ${task_cpu},
-      "memory": ${task_memory},
       "essential": true,
       "portMappings": [
         {
@@ -21,6 +19,7 @@
         }
       ],
       "environment": ${environment_vars_json},
+      "secrets": ${secrets_json},
       "logConfiguration": {
         "logDriver": "awslogs",
         "options": {

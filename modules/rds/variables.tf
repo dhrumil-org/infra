@@ -3,6 +3,12 @@ variable "env" {
   type        = string
 }
 
+variable "recovery_window_in_days" {
+  description = "Days before a deleted secret is permanently removed (0 for instant delete)"
+  type        = number
+  default     = 7
+}
+
 variable "project" {
   description = "Project name"
   type        = string

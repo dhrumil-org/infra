@@ -1,13 +1,4 @@
 ################################################################################
-# AWS managed S3 KMS key — used for artifact bucket + artifact_store so
-# CodePipeline knows exactly which key to GenerateDataKey/Decrypt against.
-################################################################################
-
-data "aws_kms_key" "s3_managed" {
-  key_id = "alias/aws/s3"
-}
-
-################################################################################
 # S3 Artifact Bucket for CodePipeline
 ################################################################################
 
@@ -30,10 +21,8 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
   bucket = aws_s3_bucket.artifacts.id
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm     = "aws:kms"
-      kms_master_key_id = data.aws_kms_key.s3_managed.arn
+      sse_algorithm = "AES256"
     }
-    bucket_key_enabled = true
   }
 }
 
@@ -61,6 +50,7 @@ resource "local_file" "taskdef" {
     log_group             = var.log_group
     aws_region            = var.aws_region
     environment_vars_json = jsonencode(var.environment_variables)
+    secrets_json          = jsonencode(var.secrets)
   })
   filename = "${path.module}/generated/taskdef.json"
 }
@@ -89,9 +79,10 @@ data "archive_file" "config" {
 }
 
 resource "aws_s3_object" "config" {
-  bucket                 = aws_s3_bucket.artifacts.id
-  key                    = "config/config.zip"
+  bucket = aws_s3_bucket.artifacts.id
+  key    = "config/config.zip"
   source = data.archive_file.config.output_path
+  etag   = data.archive_file.config.output_md5
 
   depends_on = [
     data.archive_file.config,
@@ -111,13 +102,6 @@ resource "aws_codepipeline" "this" {
   artifact_store {
     location = aws_s3_bucket.artifacts.bucket
     type     = "S3"
-
-    # Must match the bucket's KMS key — without this CodePipeline doesn't know
-    # which key to use and throws "Insufficient permissions" on source actions.
-    encryption_key {
-      id   = data.aws_kms_key.s3_managed.arn
-      type = "KMS"
-    }
   }
 
   ############################################################################
@@ -159,7 +143,7 @@ resource "aws_codepipeline" "this" {
   }
 
   ############################################################################
-  # Stage 2: Deploy — CodeDeploy canary to ECS
+  # Stage 2: Deploy — CodeDeploy to ECS (blue/green)
   ############################################################################
   stage {
     name = "Deploy"
@@ -251,18 +235,15 @@ resource "aws_iam_role_policy" "codepipeline" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "S3Artifacts"
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:GetObjectVersion",
-          "s3:GetObjectVersionTagging",
           "s3:GetBucketVersioning",
           "s3:GetBucketLocation",
-          "s3:GetBucketAcl",
           "s3:ListBucket",
-          "s3:ListBucketVersions",
           "s3:PutObject",
-          "s3:PutObjectAcl"
         ]
         Resource = [
           aws_s3_bucket.artifacts.arn,
@@ -270,6 +251,7 @@ resource "aws_iam_role_policy" "codepipeline" {
         ]
       },
       {
+        Sid    = "ECRRead"
         Effect = "Allow"
         Action = [
           "ecr:DescribeImages",
@@ -279,20 +261,13 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = var.ecr_repository_arn
       },
       {
+        Sid      = "ECRAuth"
         Effect   = "Allow"
         Action   = "ecr:GetAuthorizationToken"
         Resource = "*"
       },
       {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:DescribeKey",
-          "kms:GenerateDataKey*"
-        ]
-        Resource = "*"
-      },
-      {
+        Sid    = "CodeDeploy"
         Effect = "Allow"
         Action = [
           "codedeploy:CreateDeployment",
@@ -305,6 +280,7 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = "*"
       },
       {
+        Sid    = "ECS"
         Effect = "Allow"
         Action = [
           "ecs:DescribeServices",
@@ -318,13 +294,13 @@ resource "aws_iam_role_policy" "codepipeline" {
         Resource = "*"
       },
       {
-        Effect = "Allow"
-        Action = [
-          "iam:PassRole"
-        ]
+        Sid      = "PassRole"
+        Effect   = "Allow"
+        Action   = "iam:PassRole"
         Resource = var.ecs_task_role_arns
       },
       {
+        Sid    = "ELB"
         Effect = "Allow"
         Action = [
           "elasticloadbalancing:DescribeTargetGroups",
