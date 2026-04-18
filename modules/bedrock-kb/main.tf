@@ -2,7 +2,7 @@ locals {
   name_prefix  = "${var.project}-${var.env}"
   kb_full_name = "${local.name_prefix}-${var.kb_name}-kb"
 
-  # All resource names derive from name_prefix → stage: vocanote-stage-*, prod: vocanote-prod-*
+  # All resource names derive from name_prefix → stage: vocuone-stage-*, prod: vocuone-prod-*
   vector_bucket_name = var.vector_bucket_name != "" ? var.vector_bucket_name : "${local.name_prefix}-s3-vector-store"
   vector_index_name  = var.vector_index_name != "" ? var.vector_index_name : "${local.name_prefix}-kb-index"
 

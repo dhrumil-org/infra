@@ -146,5 +146,5 @@ variable "app_secret_name" {
 variable "app_db_username" {
   description = "Application database username (IAM-authenticated, created manually via SQL)"
   type        = string
-  default     = "vocanote_service_user"
+  default     = "vocuone_service_user"
 }

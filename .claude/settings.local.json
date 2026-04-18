@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(terraform version:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh pr create --title 'Add HIPAA-compliant ECS staging infrastructure' --body ':*)",
+      "Bash(grep -E \"\\\\.\\(yml|yaml|properties\\)$\")",
+      "Bash(xargs basename:*)",
+      "Bash(xargs ls:*)",
+      "Bash(grep -n '\"${local.name_prefix}' \"D:/infra/.claude/worktrees/intelligent-allen/modules/bedrock-kb/main.tf\")",
+      "Bash(node -e ':*)",
+      "Bash(grep -E \"deletion_protection|backup_retention|multi_az|instance_class|asg_max|task_cpu\" \"D:\\\\infra\\\\.claude\\\\worktrees\\\\intelligent-allen/deployments\"/*/*/*.tfvars)",
+      "Bash(terraform validate:*)",
+      "Bash(find /d/infra/.claude/worktrees/intelligent-allen/modules -type f -name \"*.tf\" -exec grep -l \"force_ssl\\\\|ssl_policy\\\\|TLS\\\\|tls\" {} \\\\;)",
+      "Bash(find /d/infra/.claude/worktrees/intelligent-allen -name \"*variables.tf\" -path \"*/rds/*\" -exec grep -A 2 \"backup_retention\" {} \\\\;)"
+    ]
+  }
+}

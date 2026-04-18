@@ -173,7 +173,7 @@ variable "app_db_secret_name" {
 variable "app_db_username" {
   description = "Database username the Spring Boot app authenticates as (IAM auth)"
   type        = string
-  default     = "vocanote_service_user"
+  default     = "vocuone_service_user"
 }
 
 variable "spring_profile" {

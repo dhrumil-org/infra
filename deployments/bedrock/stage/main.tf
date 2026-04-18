@@ -1,7 +1,7 @@
 ################################################################################
 # Bedrock Knowledge Base — Stage
 #
-# Mirrors dev-vocanote-kb-v2 configuration:
+# Mirrors dev-vocuone-kb-v2 configuration:
 #   - Embedding model : Amazon Nova Multimodal Embeddings v1 (1024 dims)
 #   - Vector store    : Amazon S3 Vectors
 #   - Data source 1   : Fixed-size chunking, default parsing
@@ -65,7 +65,7 @@ module "bedrock_kb" {
 #
 # Looks up the role by name — no remote state dependency.
 # Role name follows the ecs-service module convention:
-#   {project}-{env}-{service_name}-task-role → vocanote-stage-app-task-role
+#   {project}-{env}-{service_name}-task-role → vocuone-stage-app-task-role
 #
 # NOTE: Only enable AFTER the ECS stack has been created (the role must exist).
 # First deploy: terraform apply (creates KB + agent)

@@ -35,7 +35,7 @@ variable "kb_description" {
 variable "embedding_model_arn" {
   description = "ARN of the Bedrock embedding model"
   type        = string
-  # Amazon Nova Multimodal Embeddings v1 — matches dev-vocanote-kb-v2
+  # Amazon Nova Multimodal Embeddings v1 — matches dev-vocuone-kb-v2
   default = "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-multimodal-embeddings-v1:0"
 }
 
