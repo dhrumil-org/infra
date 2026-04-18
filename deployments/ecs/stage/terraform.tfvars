@@ -49,8 +49,7 @@ app_email_redirect_url = "https://your-frontend-url.com"
 # Secrets the app reads at runtime via AWS SDK
 # Add ARNs for every secret your app calls GetSecretValue on
 task_secret_arns = [
-  "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/prod/sentry-*",
-  "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/prod/db-*",
+  "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/prod/*",
   "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/stage/*",
   "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocanote/stage/*",
 ]
