@@ -40,8 +40,43 @@ resource "aws_iam_user_policy_attachment" "iam_full" {
 }
 
 ################################################################################
+# IAM User — Grafana Cloud (read-only CloudWatch access)
+################################################################################
+
+resource "aws_iam_user" "grafana" {
+  name = "${var.project}-grafana"
+
+  tags = {
+    Project   = var.project
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_access_key" "grafana" {
+  user = aws_iam_user.grafana.name
+}
+
+resource "aws_iam_user_policy_attachment" "grafana_cloudwatch" {
+  user       = aws_iam_user.grafana.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
+}
+
+################################################################################
 # Outputs
 ################################################################################
+
+output "grafana_access_key_id" {
+  description = "AWS Access Key ID for Grafana Cloud"
+  value       = aws_iam_access_key.grafana.id
+  sensitive   = true
+}
+
+output "grafana_secret_access_key" {
+  description = "AWS Secret Access Key for Grafana Cloud"
+  value       = aws_iam_access_key.grafana.secret
+  sensitive   = true
+}
+
 
 output "iam_user_name" {
   description = "GitHub Actions IAM user name"
