@@ -173,10 +173,50 @@ resource "aws_cloudtrail" "this" {
   cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
   cloud_watch_logs_role_arn  = aws_iam_role.cloudtrail_cw.arn
 
-  # Log all management events (IAM, EC2, RDS, etc.)
-  event_selector {
-    read_write_type           = "All"
-    include_management_events = true
+  # Management events — IAM, EC2, RDS, S3 bucket ops, etc.
+  advanced_event_selector {
+    name = "ManagementEvents"
+    field_selector {
+      field  = "eventCategory"
+      equals = ["Management"]
+    }
+  }
+
+  # Bedrock data events — InvokeModel, InvokeAgent, Retrieve (HIPAA audit)
+  advanced_event_selector {
+    name = "BedrockAgentInvocations"
+    field_selector {
+      field  = "eventCategory"
+      equals = ["Data"]
+    }
+    field_selector {
+      field  = "resources.type"
+      equals = ["AWS::Bedrock::AgentAlias"]
+    }
+  }
+
+  advanced_event_selector {
+    name = "BedrockKnowledgeBase"
+    field_selector {
+      field  = "eventCategory"
+      equals = ["Data"]
+    }
+    field_selector {
+      field  = "resources.type"
+      equals = ["AWS::Bedrock::KnowledgeBase"]
+    }
+  }
+
+  advanced_event_selector {
+    name = "BedrockModelInvocations"
+    field_selector {
+      field  = "eventCategory"
+      equals = ["Data"]
+    }
+    field_selector {
+      field  = "resources.type"
+      equals = ["AWS::Bedrock::InferenceProfile"]
+    }
   }
 
   tags = {
