@@ -207,18 +207,6 @@ resource "aws_cloudtrail" "this" {
     }
   }
 
-  advanced_event_selector {
-    name = "BedrockModelInvocations"
-    field_selector {
-      field  = "eventCategory"
-      equals = ["Data"]
-    }
-    field_selector {
-      field  = "resources.type"
-      equals = ["AWS::Bedrock::InferenceProfile"]
-    }
-  }
-
   tags = {
     Name = "${var.project}-${var.env}-trail"
   }
