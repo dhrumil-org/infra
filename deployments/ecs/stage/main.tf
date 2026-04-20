@@ -231,6 +231,35 @@ module "kms" {
         ]
       })
     }
+    backup = {
+      description = "KMS key for AWS Backup vault + SNS encryption"
+      policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Sid       = "AllowKeyManagement"
+            Effect    = "Allow"
+            Principal = { AWS = "arn:aws:iam::${var.aws_account_id}:root" }
+            Action    = "kms:*"
+            Resource  = "*"
+          },
+          {
+            Sid       = "AllowBackupService"
+            Effect    = "Allow"
+            Principal = { Service = "backup.amazonaws.com" }
+            Action    = ["kms:Decrypt", "kms:GenerateDataKey", "kms:CreateGrant", "kms:DescribeKey"]
+            Resource  = "*"
+          },
+          {
+            Sid       = "AllowSNS"
+            Effect    = "Allow"
+            Principal = { Service = "sns.amazonaws.com" }
+            Action    = ["kms:Decrypt", "kms:GenerateDataKey"]
+            Resource  = "*"
+          }
+        ]
+      })
+    }
   }
 }
 
@@ -484,6 +513,29 @@ module "cicd" {
 }
 
 ################################################################################
+# AWS Backup — S3 + RDS daily/monthly snapshots (HIPAA)
+################################################################################
+
+module "backup" {
+  source = "../../../modules/backup"
+
+  env     = var.env
+  project = var.project
+
+  kms_key_arn = module.kms.key_arns["backup"]
+
+  # S3 buckets that hold patient/user data (from Bedrock stage deployment)
+  s3_bucket_arns = [
+    "arn:aws:s3:::${data.terraform_remote_state.bedrock_stage.outputs.primary_bucket_name}",
+    "arn:aws:s3:::${data.terraform_remote_state.bedrock_stage.outputs.secondary_bucket_name}",
+    "arn:aws:s3:::${data.terraform_remote_state.bedrock_stage.outputs.multimodal_bucket_name}",
+  ]
+
+  # RDS PostgreSQL instance
+  rds_arn = module.rds.db_instance_arn
+}
+
+################################################################################
 # Outputs
 ################################################################################
 
@@ -598,4 +650,23 @@ output "cloudtrail_arn" {
 output "cloudtrail_bucket" {
   description = "S3 bucket for CloudTrail logs (7-year retention)"
   value       = module.cloudtrail.log_bucket_name
+}
+
+################################################################################
+# AWS Backup Outputs
+################################################################################
+
+output "backup_vault_name" {
+  description = "AWS Backup vault name"
+  value       = module.backup.vault_name
+}
+
+output "backup_vault_arn" {
+  description = "AWS Backup vault ARN"
+  value       = module.backup.vault_arn
+}
+
+output "backup_sns_topic_arn" {
+  description = "SNS topic ARN for backup failure alerts"
+  value       = module.backup.sns_topic_arn
 }
