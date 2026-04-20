@@ -86,8 +86,8 @@ resource "aws_backup_plan" "daily" {
     target_vault_name = aws_backup_vault.this.name
     schedule          = "cron(0 2 * * ? *)" # 2 AM UTC every day
 
-    start_window_minutes      = 60  # start within 60 min of scheduled time
-    completion_window_minutes = 180 # must complete within 3 hours
+    start_window      = 60  # start within 60 min of scheduled time
+    completion_window = 180 # must complete within 3 hours
 
     lifecycle {
       delete_after = 30 # retain for 30 days
@@ -113,8 +113,8 @@ resource "aws_backup_plan" "monthly" {
     target_vault_name = aws_backup_vault.this.name
     schedule          = "cron(0 3 1 * ? *)" # 3 AM UTC on 1st of every month
 
-    start_window_minutes      = 60
-    completion_window_minutes = 480 # 8 hours (large S3 buckets may take time)
+    start_window      = 60
+    completion_window = 480 # 8 hours (large S3 buckets may take time)
 
     lifecycle {
       cold_storage_after = 90  # move to cold storage after 90 days (cheaper)
