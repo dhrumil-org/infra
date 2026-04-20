@@ -175,39 +175,3 @@ resource "aws_backup_selection" "monthly_rds" {
   resources = [var.rds_arn]
 }
 
-################################################################################
-# SNS — Backup job failure notifications
-################################################################################
-
-resource "aws_sns_topic" "backup_alerts" {
-  name              = "${var.project}-${var.env}-backup-alerts"
-  kms_master_key_id = var.kms_key_arn
-
-  tags = {
-    Name = "${var.project}-${var.env}-backup-alerts"
-  }
-}
-
-resource "aws_backup_vault_notifications" "this" {
-  backup_vault_name   = aws_backup_vault.this.name
-  sns_topic_arn       = aws_sns_topic.backup_alerts.arn
-  backup_vault_events = ["BACKUP_JOB_FAILED", "RESTORE_JOB_FAILED"]
-}
-
-# Allow AWS Backup to publish to SNS
-data "aws_iam_policy_document" "sns_backup" {
-  statement {
-    effect  = "Allow"
-    actions = ["SNS:Publish"]
-    principals {
-      type        = "Service"
-      identifiers = ["backup.amazonaws.com"]
-    }
-    resources = [aws_sns_topic.backup_alerts.arn]
-  }
-}
-
-resource "aws_sns_topic_policy" "backup_alerts" {
-  arn    = aws_sns_topic.backup_alerts.arn
-  policy = data.aws_iam_policy_document.sns_backup.json
-}

@@ -250,13 +250,6 @@ module "kms" {
             Action    = ["kms:Decrypt", "kms:GenerateDataKey", "kms:CreateGrant", "kms:DescribeKey"]
             Resource  = "*"
           },
-          {
-            Sid       = "AllowSNS"
-            Effect    = "Allow"
-            Principal = { Service = "sns.amazonaws.com" }
-            Action    = ["kms:Decrypt", "kms:GenerateDataKey"]
-            Resource  = "*"
-          }
         ]
       })
     }
@@ -666,7 +659,3 @@ output "backup_vault_arn" {
   value       = module.backup.vault_arn
 }
 
-output "backup_sns_topic_arn" {
-  description = "SNS topic ARN for backup failure alerts"
-  value       = module.backup.sns_topic_arn
-}

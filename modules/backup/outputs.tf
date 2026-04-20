@@ -23,7 +23,3 @@ output "backup_role_arn" {
   value       = aws_iam_role.backup.arn
 }
 
-output "sns_topic_arn" {
-  description = "SNS topic ARN for backup failure alerts"
-  value       = aws_sns_topic.backup_alerts.arn
-}
