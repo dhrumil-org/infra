@@ -98,7 +98,7 @@ data "archive_file" "bootstrap" {
   type        = "zip"
   output_path = "${path.module}/bootstrap.zip"
   source {
-    filename = "nodejs/node_modules/canary.js"
+    filename = "nodejs/node_modules/index.js"
     content  = "exports.handler = async () => { console.log('bootstrap'); };"
   }
 }
@@ -111,7 +111,7 @@ resource "aws_synthetics_canary" "this" {
   name                 = "${var.project}-${var.env}-api-canary"
   artifact_s3_location = "s3://${aws_s3_bucket.artifacts.bucket}/"
   execution_role_arn   = aws_iam_role.canary.arn
-  handler              = "canary.handler"
+  handler              = "index.handler"
   runtime_version      = var.runtime_version
   start_canary         = true
 
@@ -128,8 +128,15 @@ resource "aws_synthetics_canary" "this" {
     duration_in_seconds = 0
   }
 
-  success_retention_period = 91
-  failure_retention_period = 91
+  success_retention_period = 31
+  failure_retention_period = 31
+
+  run_config {
+    timeout_in_seconds    = 840
+    memory_in_mb          = 960
+    active_tracing        = false
+    ephemeral_storage     = 1024
+  }
 
   tags = { Name = "${var.project}-${var.env}-api-canary" }
 

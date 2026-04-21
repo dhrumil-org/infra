@@ -518,7 +518,7 @@ module "synthetics" {
   base_url              = "https://${var.api_domain}"
   login_email           = var.canary_login_email
   login_password        = var.canary_login_password
-  schedule_rate_minutes = 5
+  schedule_rate_minutes = 60
 }
 
 ################################################################################
