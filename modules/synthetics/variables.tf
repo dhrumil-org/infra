@@ -38,3 +38,9 @@ variable "runtime_version" {
   type        = string
   default     = "syn-nodejs-puppeteer-9.1"
 }
+
+variable "extra_env_vars" {
+  description = "Additional environment variables to pass to the canary (e.g. SKIP_CONVERSATION_ON_FORBIDDEN)"
+  type        = map(string)
+  default     = {}
+}

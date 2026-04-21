@@ -148,23 +148,26 @@ resource "aws_iam_role_policy" "canary" {
 }
 
 ################################################################################
-# Canary Script — zip canary.js in the required directory structure
+# Canary Script — zip the full canary/ directory
 #
-# CloudWatch Synthetics requires:
-#   canary.zip
-#   └── nodejs/
-#       └── node_modules/
-#           └── canary.js   ← handler = "canary.handler"
+# CloudWatch Synthetics requires this structure inside the zip:
+#   nodejs/
+#   └── node_modules/
+#       ├── canary.js              ← entry point (handler = "canary.handler")
+#       ├── config/env.js
+#       ├── config/syntheticsConfig.js
+#       ├── lib/http.js
+#       ├── data/formData.js
+#       └── flows/*.js
+#
+# Drop your actual flow files into:
+#   modules/synthetics/canary/nodejs/node_modules/flows/
 ################################################################################
 
 data "archive_file" "canary" {
   type        = "zip"
+  source_dir  = "${path.module}/canary"
   output_path = "${path.module}/canary.zip"
-
-  source {
-    content  = file("${path.module}/canary.js")
-    filename = "nodejs/node_modules/canary.js"
-  }
 }
 
 ################################################################################
@@ -180,11 +183,14 @@ resource "aws_synthetics_canary" "this" {
   runtime_version      = var.runtime_version
   start_canary         = true
 
-  environment_variables = {
-    BASE_URL       = var.base_url
-    LOGIN_EMAIL    = var.login_email
-    LOGIN_PASSWORD = var.login_password
-  }
+  environment_variables = merge(
+    {
+      BASE_URL       = var.base_url
+      LOGIN_EMAIL    = var.login_email
+      LOGIN_PASSWORD = var.login_password
+    },
+    var.extra_env_vars
+  )
 
   schedule {
     expression          = "rate(${var.schedule_rate_minutes} minutes)"
