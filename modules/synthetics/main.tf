@@ -115,7 +115,7 @@ resource "aws_synthetics_canary" "this" {
   runtime_version      = var.runtime_version
   start_canary         = true
 
-  zip_file = filebase64(data.archive_file.bootstrap.output_path)
+  zip_file = data.archive_file.bootstrap.output_path
 
   schedule {
     expression          = "rate(${var.schedule_rate_minutes} minutes)"
