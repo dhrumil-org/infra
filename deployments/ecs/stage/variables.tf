@@ -219,15 +219,21 @@ variable "api_domain" {
 }
 
 variable "canary_login_email" {
-  description = "Test account email for canary authenticated checks (leave empty to skip)"
+  description = "Test account email for canary login flow (leave empty to skip auth step)"
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "canary_login_password" {
-  description = "Test account password for canary authenticated checks (leave empty to skip)"
+  description = "Test account password for canary login flow"
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "canary_schedule_rate_minutes" {
+  description = "How often the canary runs, in minutes"
+  type        = number
+  default     = 60
 }

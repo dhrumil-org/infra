@@ -169,31 +169,6 @@ resource "aws_iam_policy" "stage_dev" {
           "arn:aws:s3:::${local.stage_prefix}-*/*",
         ]
       },
-      {
-        Sid    = "TerraformState"
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:ListBucket",
-          "s3:GetBucketVersioning",
-          "s3:GetBucketLocation",
-        ]
-        Resource = [
-          "arn:aws:s3:::vocuone-terraform-state-${local.account_id}",
-          "arn:aws:s3:::vocuone-terraform-state-${local.account_id}/*",
-        ]
-      },
-      {
-        Sid    = "TerraformLocks"
-        Effect = "Allow"
-        Action = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:DeleteItem",
-        ]
-        Resource = "arn:aws:dynamodb:${local.region}:${local.account_id}:table/vocuone-terraform-locks"
-      },
 
       ############################################################################
       # CloudWatch Logs — all stage log groups

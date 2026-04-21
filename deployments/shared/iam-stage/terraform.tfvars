@@ -1,2 +1,2 @@
-project    = "vocanote"
+project    = "vocuone"
 aws_region = "us-east-1"

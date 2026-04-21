@@ -1,5 +1,5 @@
 env            = "stage"
-project        = "vocanote"
+project        = "vocuone"
 aws_region     = "us-east-1"
 aws_account_id = "499290259511"
 
@@ -7,12 +7,12 @@ aws_account_id = "499290259511"
 kb_name        = "main"
 kb_description = "VocaNote stage knowledge base — voice notes and medical terminology"
 
-# Amazon Nova Multimodal Embeddings v1 — matches dev-vocanote-kb-v2
+# Amazon Nova Multimodal Embeddings v1 — matches dev-vocuone-kb-v2
 # Supports text + image inputs, 1024-dim float vectors
 embedding_model_arn = "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-multimodal-embeddings-v1:0"
 vector_dimensions   = 3072
 
-# S3 Vectors — auto-named: vocanote-stage-s3-vector-store / vocanote-stage-kb-index
+# S3 Vectors — auto-named: vocuone-stage-s3-vector-store / vocuone-stage-kb-index
 # Leave empty to use the env-prefixed defaults
 vector_bucket_name = ""
 vector_index_name  = ""

@@ -15,6 +15,7 @@ data "terraform_remote_state" "bedrock_stage" {
 # redeployments via taskdef.json template
 ################################################################################
 
+
 locals {
   # Build full ECR image URI dynamically from account ID + region
   container_image = "${var.aws_account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/${var.container_image}"
@@ -506,7 +507,12 @@ module "cicd" {
 }
 
 ################################################################################
-# CloudWatch Synthetics — API canary (liveness + auth checks every 5 min)
+# CloudWatch Synthetics — API canary
+#
+# Terraform creates infra (S3 bucket, IAM role, canary with bootstrap script,
+# alarm). GitHub Actions deploys the real script via:
+#   aws s3 cp canary.zip s3://<bucket>/canary-script/canary.zip
+#   aws synthetics update-canary --name ... --code s3Bucket=...,s3Key=...,s3ObjectVersion=...
 ################################################################################
 
 module "synthetics" {
@@ -518,7 +524,7 @@ module "synthetics" {
   base_url              = "https://${var.api_domain}"
   login_email           = var.canary_login_email
   login_password        = var.canary_login_password
-  schedule_rate_minutes = 60
+  schedule_rate_minutes = var.canary_schedule_rate_minutes
 }
 
 ################################################################################
@@ -662,20 +668,6 @@ output "cloudtrail_bucket" {
 }
 
 ################################################################################
-# Synthetics Outputs
-################################################################################
-
-output "canary_name" {
-  description = "CloudWatch Synthetics canary name"
-  value       = module.synthetics.canary_name
-}
-
-output "canary_artifact_bucket" {
-  description = "S3 bucket with canary results (logs, screenshots)"
-  value       = module.synthetics.artifact_bucket
-}
-
-################################################################################
 # AWS Backup Outputs
 ################################################################################
 
@@ -687,5 +679,19 @@ output "backup_vault_name" {
 output "backup_vault_arn" {
   description = "AWS Backup vault ARN"
   value       = module.backup.vault_arn
+}
+
+################################################################################
+# Synthetics Outputs
+################################################################################
+
+output "canary_name" {
+  description = "CloudWatch Synthetics canary name — pass this to GitHub Actions"
+  value       = module.synthetics.canary_name
+}
+
+output "canary_artifact_bucket" {
+  description = "S3 bucket where canary uploads script (canary-script/) and stores results"
+  value       = module.synthetics.artifact_bucket
 }
 

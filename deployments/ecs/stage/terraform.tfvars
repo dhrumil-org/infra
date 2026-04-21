@@ -1,5 +1,5 @@
 env            = "stage"
-project        = "vocanote"
+project        = "vocuone"
 aws_region     = "us-east-1"
 aws_account_id = "499290259511"
 
@@ -14,7 +14,7 @@ instance_type        = "t3.medium"
 asg_min_size         = 1
 asg_max_size         = 3
 asg_desired_capacity = 1
-container_image      = "vocanote-stage-app:latest"
+container_image      = "vocuone-stage-app:latest"
 container_port       = 8080
 task_cpu             = 512
 task_memory          = 2048
@@ -37,13 +37,13 @@ db_apply_immediately       = true
 
 # App-facing DB secret (matches what Spring Boot reads)
 app_db_secret_name = "vocuone/stage/db"
-app_db_username    = "vocanote_service_user"
+app_db_username    = "vocuone_service_user"
 
 # Spring profile — "stage" for IAM token auth, "dev" for password auth
 spring_profile = "stage"
 
 # App environment variables
-app_email_redirect_url   = "https://app.vocanote.ai"
+app_email_redirect_url   = "https://app.vocuone.ai"
 app_cors_allowed_origins = "https://app.vocanote.ai,https://vocanote.ai,https://stage-app.vocuone.ai"
 
 # Secrets the app reads at runtime via AWS SDK
@@ -55,8 +55,8 @@ task_secret_arns = [
 # Secrets Manager — 0 allows clean destroy/recreate without 7-day wait
 secrets_recovery_window_in_days = 0
 
-# Synthetics canary — set to a real test account for authenticated checks
-# Leave empty to run health-check only (no login step)
-api_domain            = "api.stage.vocuone.ai"
-canary_login_email    = ""
-canary_login_password = ""
+# Synthetics canary — script is deployed by GitHub Actions separately
+api_domain                   = "api.stage.vocuone.ai"
+canary_schedule_rate_minutes = 60
+canary_login_email           = ""
+canary_login_password        = ""
