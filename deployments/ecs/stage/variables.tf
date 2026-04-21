@@ -207,3 +207,27 @@ variable "secrets_recovery_window_in_days" {
   type        = number
   default     = 7
 }
+
+################################################################################
+# Synthetics Canary
+################################################################################
+
+variable "api_domain" {
+  description = "API domain the canary hits (e.g. api.stage.vocuone.ai)"
+  type        = string
+  default     = "api.stage.vocuone.ai"
+}
+
+variable "canary_login_email" {
+  description = "Test account email for canary authenticated checks (leave empty to skip)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "canary_login_password" {
+  description = "Test account password for canary authenticated checks (leave empty to skip)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

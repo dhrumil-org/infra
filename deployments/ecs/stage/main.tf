@@ -506,6 +506,22 @@ module "cicd" {
 }
 
 ################################################################################
+# CloudWatch Synthetics — API canary (liveness + auth checks every 5 min)
+################################################################################
+
+module "synthetics" {
+  source = "../../../modules/synthetics"
+
+  env     = var.env
+  project = var.project
+
+  base_url              = "https://${var.api_domain}"
+  login_email           = var.canary_login_email
+  login_password        = var.canary_login_password
+  schedule_rate_minutes = 5
+}
+
+################################################################################
 # AWS Backup — S3 + RDS daily/monthly snapshots (HIPAA)
 ################################################################################
 
@@ -643,6 +659,20 @@ output "cloudtrail_arn" {
 output "cloudtrail_bucket" {
   description = "S3 bucket for CloudTrail logs (7-year retention)"
   value       = module.cloudtrail.log_bucket_name
+}
+
+################################################################################
+# Synthetics Outputs
+################################################################################
+
+output "canary_name" {
+  description = "CloudWatch Synthetics canary name"
+  value       = module.synthetics.canary_name
+}
+
+output "canary_artifact_bucket" {
+  description = "S3 bucket with canary results (logs, screenshots)"
+  value       = module.synthetics.artifact_bucket
 }
 
 ################################################################################

@@ -54,3 +54,9 @@ task_secret_arns = [
 
 # Secrets Manager — 0 allows clean destroy/recreate without 7-day wait
 secrets_recovery_window_in_days = 0
+
+# Synthetics canary — set to a real test account for authenticated checks
+# Leave empty to run health-check only (no login step)
+api_domain            = "api.stage.vocuone.ai"
+canary_login_email    = ""
+canary_login_password = ""
