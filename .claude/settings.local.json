@@ -12,7 +12,16 @@
       "Bash(grep -E \"deletion_protection|backup_retention|multi_az|instance_class|asg_max|task_cpu\" \"D:\\\\infra\\\\.claude\\\\worktrees\\\\intelligent-allen/deployments\"/*/*/*.tfvars)",
       "Bash(terraform validate:*)",
       "Bash(find /d/infra/.claude/worktrees/intelligent-allen/modules -type f -name \"*.tf\" -exec grep -l \"force_ssl\\\\|ssl_policy\\\\|TLS\\\\|tls\" {} \\\\;)",
-      "Bash(find /d/infra/.claude/worktrees/intelligent-allen -name \"*variables.tf\" -path \"*/rds/*\" -exec grep -A 2 \"backup_retention\" {} \\\\;)"
+      "Bash(find /d/infra/.claude/worktrees/intelligent-allen -name \"*variables.tf\" -path \"*/rds/*\" -exec grep -A 2 \"backup_retention\" {} \\\\;)",
+      "Bash(ls .github/workflows/*.yml)",
+      "Bash(grep \"branches:\" .github/workflows/*-stage.yml .github/workflows/shared-iam*.yml)",
+      "Bash(grep \"branches:\" .github/workflows/*-prod.yml)",
+      "Bash(grep \"secrets\\\\.\" .github/workflows/*-stage.yml .github/workflows/shared-iam*.yml)",
+      "Bash(grep \"secrets\\\\.\" .github/workflows/*-prod.yml)",
+      "Bash(aws iam:*)",
+      "Bash(aws bedrock *)",
+      "Bash(find . -name \"*.tf\" -exec grep -l \"depends_on\\\\|remote_state\\\\|data.terraform\" {} \\\\;)",
+      "Bash(terraform -v)"
     ]
   }
 }

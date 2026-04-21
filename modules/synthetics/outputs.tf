@@ -9,8 +9,13 @@ output "canary_arn" {
 }
 
 output "artifact_bucket" {
-  description = "S3 bucket where canary results are stored"
+  description = "S3 bucket for canary results AND script uploads (GHA uploads to canary-script/ prefix)"
   value       = aws_s3_bucket.artifacts.bucket
+}
+
+output "script_s3_key" {
+  description = "S3 key where GitHub Actions should upload the canary zip"
+  value       = "canary-script/canary.zip"
 }
 
 output "alarm_arn" {
