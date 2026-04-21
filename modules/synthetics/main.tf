@@ -117,26 +117,24 @@ resource "aws_synthetics_canary" "this" {
 
   zip_file = filebase64(data.archive_file.bootstrap.output_path)
 
-  environment_variables = {
-    BASE_URL       = var.base_url
-    LOGIN_EMAIL    = var.login_email
-    LOGIN_PASSWORD = var.login_password
-  }
-
   schedule {
     expression          = "rate(${var.schedule_rate_minutes} minutes)"
     duration_in_seconds = 0
   }
 
+  run_config {
+    timeout_in_seconds = 840
+    memory_in_mb       = 960
+    active_tracing     = false
+    environment_variables = {
+      BASE_URL       = var.base_url
+      LOGIN_EMAIL    = var.login_email
+      LOGIN_PASSWORD = var.login_password
+    }
+  }
+
   success_retention_period = 31
   failure_retention_period = 31
-
-  run_config {
-    timeout_in_seconds    = 840
-    memory_in_mb          = 960
-    active_tracing        = false
-    ephemeral_storage     = 1024
-  }
 
   tags = { Name = "${var.project}-${var.env}-api-canary" }
 
