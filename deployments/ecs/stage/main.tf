@@ -507,6 +507,39 @@ module "cicd" {
 }
 
 ################################################################################
+# API Gateway — HTTP API in front of ALB
+#
+# Client → api.stage.vocuone.ai → API Gateway → ALB → ECS
+# Keeps existing blue/green via CodeDeploy on the ALB intact.
+#
+# DNS: set create_route53_record = true if you want Terraform to manage
+# the Route53 alias. Otherwise, manually point api_domain at:
+#   module.api_gateway.custom_domain_target
+################################################################################
+
+module "api_gateway" {
+  source = "../../../modules/api-gateway"
+
+  env     = var.env
+  project = var.project
+
+  api_domain          = var.api_domain
+  alb_dns_name        = module.alb.alb_dns_name
+  acm_certificate_arn = var.acm_certificate_arn
+  kms_key_arn         = module.kms.key_arns["logs"]
+
+  cors_allowed_origins = split(",", var.app_cors_allowed_origins)
+
+  # Throttling — adjust based on expected traffic
+  throttling_burst_limit = 500
+  throttling_rate_limit  = 100
+
+  # Route53 management (manual DNS cutover recommended for first rollout)
+  create_route53_record = false
+  route53_zone_id       = ""
+}
+
+################################################################################
 # CloudWatch Synthetics — API canary
 #
 # Terraform creates infra (S3 bucket, IAM role, canary with bootstrap script,
@@ -679,6 +712,25 @@ output "backup_vault_name" {
 output "backup_vault_arn" {
   description = "AWS Backup vault ARN"
   value       = module.backup.vault_arn
+}
+
+################################################################################
+# API Gateway Outputs
+################################################################################
+
+output "api_gateway_endpoint" {
+  description = "Default API Gateway URL — test here before DNS cutover"
+  value       = module.api_gateway.api_endpoint
+}
+
+output "api_gateway_custom_domain_target" {
+  description = "Point your Route53 alias (api.stage.vocuone.ai) at this target"
+  value       = module.api_gateway.custom_domain_target
+}
+
+output "api_gateway_custom_domain_zone_id" {
+  description = "Hosted zone ID for the Route53 alias (pair with the target above)"
+  value       = module.api_gateway.custom_domain_hosted_zone_id
 }
 
 ################################################################################
