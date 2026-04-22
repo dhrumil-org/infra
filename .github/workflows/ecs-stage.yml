@@ -17,6 +17,9 @@ on:
       - "modules/rds/**"
       - "modules/bastion/**"
       - "modules/cloudtrail/**"
+      - "modules/api-gateway/**"
+      - "modules/synthetics/**"
+      - "modules/backup/**"
   pull_request:
     branches: [stage]
     paths:

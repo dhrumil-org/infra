@@ -42,9 +42,19 @@ resource "aws_apigatewayv2_integration" "alb" {
   api_id             = aws_apigatewayv2_api.this.id
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
-  integration_uri    = "https://${var.alb_dns_name}/{proxy}"
 
-  timeout_milliseconds = 29000 # max allowed for HTTP API
+  # No trailing /{proxy} — HTTP API auto-appends the full original path.
+  # With /{proxy}, we'd need explicit request_parameters mapping and TLS
+  # config tricks for cert validation against alb DNS name.
+  integration_uri = "https://${var.alb_dns_name}"
+
+  # Overwrite the path the backend sees — use the captured proxy variable
+  # so /health → /health (not /{proxy})
+  request_parameters = {
+    "overwrite:path" = "/$request.path.proxy"
+  }
+
+  timeout_milliseconds = 29000
 }
 
 ################################################################################
