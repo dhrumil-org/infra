@@ -43,10 +43,11 @@ resource "aws_apigatewayv2_integration" "alb" {
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
 
-  # No trailing /{proxy} — HTTP API auto-appends the full original path.
-  # With /{proxy}, we'd need explicit request_parameters mapping and TLS
-  # config tricks for cert validation against alb DNS name.
-  integration_uri = "https://${var.alb_dns_name}"
+  # HTTP (not HTTPS) — API Gateway can't verify the ALB's cert since the
+  # cert is issued for api.stage.vocuone.ai but the SNI hostname here is
+  # the ALB's elb.amazonaws.com DNS. Traffic between API Gateway and ALB
+  # stays inside AWS's private network, so HTTP is fine.
+  integration_uri = "http://${var.alb_dns_name}"
 
   # Overwrite the path the backend sees — use the captured proxy variable
   # so /health → /health (not /{proxy})
@@ -99,18 +100,24 @@ resource "aws_apigatewayv2_stage" "default" {
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.access.arn
     format = jsonencode({
-      requestId          = "$context.requestId"
-      sourceIp           = "$context.identity.sourceIp"
-      requestTime        = "$context.requestTime"
-      httpMethod         = "$context.httpMethod"
-      routeKey           = "$context.routeKey"
-      path               = "$context.path"
-      status             = "$context.status"
-      protocol           = "$context.protocol"
-      responseLength     = "$context.responseLength"
-      integrationStatus  = "$context.integrationStatus"
-      integrationLatency = "$context.integrationLatency"
-      userAgent          = "$context.identity.userAgent"
+      requestId                 = "$context.requestId"
+      sourceIp                  = "$context.identity.sourceIp"
+      requestTime               = "$context.requestTime"
+      httpMethod                = "$context.httpMethod"
+      routeKey                  = "$context.routeKey"
+      path                      = "$context.path"
+      status                    = "$context.status"
+      protocol                  = "$context.protocol"
+      responseLength            = "$context.responseLength"
+      integrationStatus         = "$context.integrationStatus"
+      integrationLatency        = "$context.integrationLatency"
+      integrationRequestId      = "$context.integration.requestId"
+      integrationError          = "$context.integration.error"
+      integrationErrorMessage   = "$context.integrationErrorMessage"
+      authorizerError           = "$context.authorizer.error"
+      errorMessage              = "$context.error.message"
+      errorResponseType         = "$context.error.responseType"
+      userAgent                 = "$context.identity.userAgent"
     })
   }
 

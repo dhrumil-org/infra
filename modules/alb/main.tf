@@ -103,7 +103,14 @@ resource "aws_lb_listener" "https" {
 }
 
 ################################################################################
-# HTTP Listener — Redirect to HTTPS
+# HTTP Listener — forward to blue target group
+#
+# Used by API Gateway HTTP_PROXY integration. API Gateway can't verify the
+# ALB's TLS cert (cert is for api.stage.vocuone.ai, hostname is the ALB DNS),
+# so we use HTTP on the API Gateway → ALB hop. Traffic stays inside AWS.
+#
+# Clients always reach us via API Gateway on HTTPS — they never hit port 80
+# directly. The previous HTTP-to-HTTPS redirect is unnecessary now.
 ################################################################################
 
 resource "aws_lb_listener" "http" {
@@ -112,13 +119,12 @@ resource "aws_lb_listener" "http" {
   protocol          = "HTTP"
 
   default_action {
-    type = "redirect"
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.blue.arn
+  }
 
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+  lifecycle {
+    ignore_changes = [default_action]
   }
 }
 
