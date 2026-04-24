@@ -20,23 +20,227 @@ resource "aws_iam_access_key" "cicd" {
 }
 
 ################################################################################
-# Attach AWS managed policies for full infrastructure management
-#
-# PowerUserAccess = everything except IAM user/group management
-# IAMFullAccess   = create/manage IAM roles, policies, instance profiles
-#
-# This is appropriate for a CI/CD user that manages all infrastructure.
-# For tighter control, replace with a custom policy listing specific actions.
+# Scoped custom policy — only the services Terraform actually manages
 ################################################################################
 
-resource "aws_iam_user_policy_attachment" "power_user" {
-  user       = aws_iam_user.cicd.name
-  policy_arn = "arn:aws:iam::aws:policy/PowerUserAccess"
+resource "aws_iam_policy" "cicd" {
+  name        = "${var.project}-github-actions-policy"
+  description = "Scoped CI/CD policy for Terraform infrastructure management"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EC2VPC"
+        Effect = "Allow"
+        Action = [
+          "ec2:*",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ECS"
+        Effect = "Allow"
+        Action = ["ecs:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "ECR"
+        Effect = "Allow"
+        Action = ["ecr:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "ELB"
+        Effect = "Allow"
+        Action = ["elasticloadbalancing:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "RDS"
+        Effect = "Allow"
+        Action = ["rds:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "S3"
+        Effect = "Allow"
+        Action = ["s3:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "SecretsManager"
+        Effect = "Allow"
+        Action = ["secretsmanager:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "KMS"
+        Effect = "Allow"
+        Action = ["kms:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "CloudWatch"
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:*",
+          "logs:*",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "CloudTrail"
+        Effect = "Allow"
+        Action = ["cloudtrail:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "CodeDeploy"
+        Effect = "Allow"
+        Action = ["codedeploy:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "CodePipeline"
+        Effect = "Allow"
+        Action = [
+          "codepipeline:*",
+          "codestar-connections:*",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "APIGateway"
+        Effect = "Allow"
+        Action = ["apigateway:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "Route53"
+        Effect = "Allow"
+        Action = ["route53:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "ACM"
+        Effect = "Allow"
+        Action = ["acm:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "CloudFront"
+        Effect = "Allow"
+        Action = ["cloudfront:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "Synthetics"
+        Effect = "Allow"
+        Action = ["synthetics:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "Lambda"
+        Effect = "Allow"
+        Action = ["lambda:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "SNS"
+        Effect = "Allow"
+        Action = ["sns:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "DynamoDB"
+        Effect = "Allow"
+        Action = ["dynamodb:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "AutoScaling"
+        Effect = "Allow"
+        Action = ["autoscaling:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "IAM"
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:UpdateRole",
+          "iam:PassRole",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
+          "iam:CreatePolicy",
+          "iam:DeletePolicy",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicyVersion",
+          "iam:ListPolicyVersions",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:ListRoleTags",
+          "iam:TagPolicy",
+          "iam:UntagPolicy",
+          "iam:CreateUser",
+          "iam:DeleteUser",
+          "iam:GetUser",
+          "iam:TagUser",
+          "iam:UntagUser",
+          "iam:ListUserTags",
+          "iam:CreateAccessKey",
+          "iam:DeleteAccessKey",
+          "iam:ListAccessKeys",
+          "iam:AttachUserPolicy",
+          "iam:DetachUserPolicy",
+          "iam:ListAttachedUserPolicies",
+          "iam:PutUserPolicy",
+          "iam:DeleteUserPolicy",
+          "iam:GetUserPolicy",
+          "iam:ListUserPolicies",
+          "iam:ListEntitiesForPolicy",
+          "iam:ListRoles",
+          "iam:ListUsers",
+          "iam:ListPolicies",
+          "iam:ListInstanceProfiles",
+          "iam:ListInstanceProfilesForRole",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "SSM"
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:PutParameter",
+          "ssm:DeleteParameter",
+          "ssm:DescribeParameters",
+        ]
+        Resource = "*"
+      },
+    ]
+  })
 }
 
-resource "aws_iam_user_policy_attachment" "iam_full" {
+resource "aws_iam_user_policy_attachment" "cicd" {
   user       = aws_iam_user.cicd.name
-  policy_arn = "arn:aws:iam::aws:policy/IAMFullAccess"
+  policy_arn = aws_iam_policy.cicd.arn
 }
 
 ################################################################################

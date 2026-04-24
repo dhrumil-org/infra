@@ -113,7 +113,6 @@ resource "aws_iam_policy" "stage_dev" {
         ]
         Resource = [
           "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:vocuone/stage/*",
-          "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:vocuone/prod/*",
           "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:${var.project}/stage/*",
           "arn:aws:secretsmanager:${local.region}:${local.account_id}:secret:${local.stage_prefix}-*",
         ]
