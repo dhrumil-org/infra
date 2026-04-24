@@ -543,7 +543,6 @@ module "api_gateway" {
   kms_key_arn         = module.kms.key_arns["logs"]
 
   gateway_secret       = random_password.gateway_secret.result
-  cors_allowed_origins = split(",", var.app_cors_allowed_origins)
 
   # Throttling — adjust based on expected traffic
   throttling_burst_limit = 500

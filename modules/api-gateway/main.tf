@@ -16,15 +16,6 @@ resource "aws_apigatewayv2_api" "this" {
   protocol_type = "HTTP"
   description   = "HTTP API in front of ALB for ${var.project}-${var.env}"
 
-  cors_configuration {
-    allow_origins     = var.cors_allowed_origins
-    allow_methods     = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"]
-    allow_headers     = ["*"]
-    expose_headers    = ["*"]
-    allow_credentials = true
-    max_age           = 3600
-  }
-
   tags = {
     Name = "${var.project}-${var.env}-http-api"
   }

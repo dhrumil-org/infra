@@ -23,12 +23,6 @@ variable "acm_certificate_arn" {
   type        = string
 }
 
-variable "cors_allowed_origins" {
-  description = "List of CORS allowed origins"
-  type        = list(string)
-  default     = ["*"]
-}
-
 variable "throttling_burst_limit" {
   description = "Burst limit for throttling across all routes"
   type        = number
