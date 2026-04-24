@@ -526,6 +526,11 @@ module "cicd" {
 #   module.api_gateway.custom_domain_target
 ################################################################################
 
+resource "random_password" "gateway_secret" {
+  length  = 32
+  special = false
+}
+
 module "api_gateway" {
   source = "../../../modules/api-gateway"
 
@@ -537,6 +542,7 @@ module "api_gateway" {
   acm_certificate_arn = var.acm_certificate_arn
   kms_key_arn         = module.kms.key_arns["logs"]
 
+  gateway_secret       = random_password.gateway_secret.result
   cors_allowed_origins = split(",", var.app_cors_allowed_origins)
 
   # Throttling — adjust based on expected traffic

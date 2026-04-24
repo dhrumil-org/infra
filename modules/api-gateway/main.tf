@@ -55,7 +55,8 @@ resource "aws_apigatewayv2_integration" "alb" {
   # Overwrite the path the backend sees — use the captured proxy variable
   # so /health → /health (not /{proxy})
   request_parameters = {
-    "overwrite:path" = "/$request.path.proxy"
+    "overwrite:path"                    = "/$request.path.proxy"
+    "overwrite:header.X-Gateway-Secret" = "'${var.gateway_secret}'"
   }
 
   timeout_milliseconds = 29000

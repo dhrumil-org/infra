@@ -52,6 +52,12 @@ variable "kms_key_arn" {
   type        = string
 }
 
+variable "gateway_secret" {
+  description = "Secret value injected as X-Gateway-Secret header to identify traffic from API Gateway"
+  type        = string
+  sensitive   = true
+}
+
 variable "route53_zone_id" {
   description = "Route53 hosted zone ID (required if create_route53_record = true)"
   type        = string
