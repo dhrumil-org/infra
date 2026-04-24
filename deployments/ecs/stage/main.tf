@@ -295,7 +295,7 @@ module "vpc" {
 
   flow_logs_kms_key_arn    = module.kms.key_arns["logs"]
   aws_region               = var.aws_region
-  enable_bedrock_endpoints = true
+  enable_phi_vpc_endpoints = true
 }
 
 ################################################################################

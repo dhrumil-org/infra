@@ -198,7 +198,7 @@ resource "aws_flow_log" "this" {
 ################################################################################
 
 resource "aws_security_group" "endpoints" {
-  count = var.enable_bedrock_endpoints ? 1 : 0
+  count = var.enable_phi_vpc_endpoints ? 1 : 0
 
   name        = "${var.project}-${var.env}-vpc-endpoints-sg"
   description = "Allow HTTPS from within VPC to interface endpoints"
@@ -225,7 +225,7 @@ resource "aws_security_group" "endpoints" {
 
 # S3 — Gateway endpoint (free)
 resource "aws_vpc_endpoint" "s3" {
-  count = var.enable_bedrock_endpoints ? 1 : 0
+  count = var.enable_phi_vpc_endpoints ? 1 : 0
 
   vpc_id            = aws_vpc.this.id
   service_name      = "com.amazonaws.${var.aws_region}.s3"
@@ -240,7 +240,7 @@ resource "aws_vpc_endpoint" "s3" {
 
 # Secrets Manager
 resource "aws_vpc_endpoint" "secretsmanager" {
-  count = var.enable_bedrock_endpoints ? 1 : 0
+  count = var.enable_phi_vpc_endpoints ? 1 : 0
 
   vpc_id              = aws_vpc.this.id
   service_name        = "com.amazonaws.${var.aws_region}.secretsmanager"
@@ -254,7 +254,7 @@ resource "aws_vpc_endpoint" "secretsmanager" {
 
 # Transcribe (medical audio — PHI)
 resource "aws_vpc_endpoint" "transcribe" {
-  count = var.enable_bedrock_endpoints ? 1 : 0
+  count = var.enable_phi_vpc_endpoints ? 1 : 0
 
   vpc_id              = aws_vpc.this.id
   service_name        = "com.amazonaws.${var.aws_region}.transcribe"
@@ -267,7 +267,7 @@ resource "aws_vpc_endpoint" "transcribe" {
 }
 
 resource "aws_vpc_endpoint" "transcribestreaming" {
-  count = var.enable_bedrock_endpoints ? 1 : 0
+  count = var.enable_phi_vpc_endpoints ? 1 : 0
 
   vpc_id              = aws_vpc.this.id
   service_name        = "com.amazonaws.${var.aws_region}.transcribestreaming"
@@ -281,7 +281,7 @@ resource "aws_vpc_endpoint" "transcribestreaming" {
 
 # Bedrock
 resource "aws_vpc_endpoint" "bedrock_runtime" {
-  count = var.enable_bedrock_endpoints ? 1 : 0
+  count = var.enable_phi_vpc_endpoints ? 1 : 0
 
   vpc_id              = aws_vpc.this.id
   service_name        = "com.amazonaws.${var.aws_region}.bedrock-runtime"
@@ -294,7 +294,7 @@ resource "aws_vpc_endpoint" "bedrock_runtime" {
 }
 
 resource "aws_vpc_endpoint" "bedrock_agent_runtime" {
-  count = var.enable_bedrock_endpoints ? 1 : 0
+  count = var.enable_phi_vpc_endpoints ? 1 : 0
 
   vpc_id              = aws_vpc.this.id
   service_name        = "com.amazonaws.${var.aws_region}.bedrock-agent-runtime"

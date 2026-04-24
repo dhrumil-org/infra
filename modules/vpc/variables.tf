@@ -45,7 +45,7 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "enable_bedrock_endpoints" {
+variable "enable_phi_vpc_endpoints" {
   description = "Create VPC endpoints for PHI services: S3, Secrets Manager, Transcribe, Bedrock"
   type        = bool
   default     = false
