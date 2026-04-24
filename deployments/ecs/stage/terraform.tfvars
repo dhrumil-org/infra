@@ -58,6 +58,7 @@ secrets_recovery_window_in_days = 0
 api_domain                   = "stage-api.vocuone.ai"
 app_cookie_domain            = "vocuone.ai"
 canary_schedule_rate_minutes = 60
+waf_rate_limit_per_ip        = 2000
 canary_login_email           = "bhargav.g.912@gmail.com"
 canary_login_password        = "admin@123"
 

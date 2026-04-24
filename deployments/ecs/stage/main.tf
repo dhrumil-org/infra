@@ -612,6 +612,25 @@ module "api_gateway" {
   route53_zone_id       = ""
 }
 ################################################################################
+# WAF — attached to API Gateway
+#
+# Rules: rate limiting (2000/5min per IP), IP reputation, OWASP Common,
+#        KnownBadInputs (Log4Shell, SSRF)
+################################################################################
+
+module "waf" {
+  source = "../../../modules/waf"
+
+  env            = var.env
+  project        = var.project
+  aws_region     = var.aws_region
+  aws_account_id = var.aws_account_id
+
+  associated_resource_arn = module.api_gateway.stage_arn
+  rate_limit_per_ip       = var.waf_rate_limit_per_ip
+}
+
+################################################################################
 # AWS Backup — S3 + RDS daily/monthly snapshots (HIPAA)
 ################################################################################
 

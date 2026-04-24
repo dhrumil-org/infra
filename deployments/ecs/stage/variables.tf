@@ -238,3 +238,9 @@ variable "canary_schedule_rate_minutes" {
   type        = number
   default     = 60
 }
+
+variable "waf_rate_limit_per_ip" {
+  description = "Max requests per IP per 5 minutes before WAF blocks"
+  type        = number
+  default     = 2000
+}
