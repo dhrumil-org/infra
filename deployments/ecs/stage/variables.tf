@@ -207,6 +207,12 @@ variable "secrets_recovery_window_in_days" {
   type        = number
   default     = 7
 }
+variable "app_cookie_domain" {
+  description = "Cookie domain for session cookies (e.g. vocuone.ai to share across all subdomains)"
+  type        = string
+  default     = ""
+}
+
 variable "api_domain" {
   description = "API domain the canary hits (e.g. api.stage.vocuone.ai)"
   type        = string

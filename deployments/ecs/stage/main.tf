@@ -47,7 +47,7 @@ locals {
     },
     {
       name  = "APP_COOKIE_DOMAIN"
-      value = ""
+      value = var.app_cookie_domain
     },
     {
       name  = "APP_COOKIE_SECURE"
