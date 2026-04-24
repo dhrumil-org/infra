@@ -38,3 +38,15 @@ variable "flow_logs_kms_key_arn" {
   description = "KMS key ARN for encrypting VPC flow logs"
   type        = string
 }
+
+variable "aws_region" {
+  description = "AWS region (used for VPC endpoint service names)"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "enable_bedrock_endpoints" {
+  description = "Create VPC Interface Endpoints for Bedrock so traffic stays off the public internet"
+  type        = bool
+  default     = false
+}

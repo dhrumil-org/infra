@@ -192,3 +192,63 @@ resource "aws_flow_log" "this" {
     Name = "${var.project}-${var.env}-vpc-flow-log"
   }
 }
+
+################################################################################
+# VPC Interface Endpoints — Bedrock (keeps PHI traffic off public internet)
+################################################################################
+
+resource "aws_security_group" "endpoints" {
+  count = var.enable_bedrock_endpoints ? 1 : 0
+
+  name        = "${var.project}-${var.env}-vpc-endpoints-sg"
+  description = "Allow HTTPS from within VPC to interface endpoints"
+  vpc_id      = aws_vpc.this.id
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "${var.project}-${var.env}-vpc-endpoints-sg"
+  }
+}
+
+resource "aws_vpc_endpoint" "bedrock_runtime" {
+  count = var.enable_bedrock_endpoints ? 1 : 0
+
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${var.aws_region}.bedrock-runtime"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${var.project}-${var.env}-bedrock-runtime-endpoint"
+  }
+}
+
+resource "aws_vpc_endpoint" "bedrock_agent_runtime" {
+  count = var.enable_bedrock_endpoints ? 1 : 0
+
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${var.aws_region}.bedrock-agent-runtime"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = {
+    Name = "${var.project}-${var.env}-bedrock-agent-runtime-endpoint"
+  }
+}

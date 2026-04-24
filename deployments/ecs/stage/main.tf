@@ -1,5 +1,9 @@
 data "aws_caller_identity" "current" {}
 
+data "aws_secretsmanager_secret_version" "canary" {
+  secret_id = "vocuone/stage/canary"
+}
+
 # Pull Bedrock IDs dynamically from bedrock/stage remote state
 data "terraform_remote_state" "bedrock_stage" {
   backend = "s3"
@@ -118,8 +122,8 @@ module "synthetics" {
   project = var.project
 
   base_url              = "https://${var.api_domain}"
-  login_email           = var.canary_login_email
-  login_password        = var.canary_login_password
+  login_email           = jsondecode(data.aws_secretsmanager_secret_version.canary.secret_string)["email"]
+  login_password        = jsondecode(data.aws_secretsmanager_secret_version.canary.secret_string)["password"]
   schedule_rate_minutes = var.canary_schedule_rate_minutes
 }
 ################################################################################
@@ -289,7 +293,9 @@ module "vpc" {
   availability_zones   = var.availability_zones
   nat_gateway_count    = 1
 
-  flow_logs_kms_key_arn = module.kms.key_arns["logs"]
+  flow_logs_kms_key_arn    = module.kms.key_arns["logs"]
+  aws_region               = var.aws_region
+  enable_bedrock_endpoints = true
 }
 
 ################################################################################
