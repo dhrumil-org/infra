@@ -207,11 +207,6 @@ variable "secrets_recovery_window_in_days" {
   type        = number
   default     = 7
 }
-
-################################################################################
-# Synthetics Canary
-################################################################################
-
 variable "api_domain" {
   description = "API domain the canary hits (e.g. api.stage.vocuone.ai)"
   type        = string

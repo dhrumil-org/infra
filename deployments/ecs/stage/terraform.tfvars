@@ -56,7 +56,10 @@ task_secret_arns = [
 secrets_recovery_window_in_days = 0
 
 # Synthetics canary — script is deployed by GitHub Actions separately
-api_domain                   = "api.stage.vocuone.ai"
+api_domain                   = "stage-api.vocuone.ai"
 canary_schedule_rate_minutes = 60
-canary_login_email           = ""
-canary_login_password        = ""
+canary_login_email           = "bhargav.g.912@gmail.com"
+canary_login_password        = "admin@123"
+
+
+

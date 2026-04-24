@@ -105,7 +105,17 @@ module "cloudtrail" {
   aws_account_id = var.aws_account_id
   kms_key_arn    = module.kms.key_arns["logs"]
 }
+module "synthetics" {
+  source = "../../../modules/synthetics"
 
+  env     = var.env
+  project = var.project
+
+  base_url              = "https://${var.api_domain}"
+  login_email           = var.canary_login_email
+  login_password        = var.canary_login_password
+  schedule_rate_minutes = var.canary_schedule_rate_minutes
+}
 ################################################################################
 # KMS Keys — Encryption at rest (HIPAA)
 ################################################################################
@@ -505,7 +515,6 @@ module "cicd" {
   environment_variables = local.app_environment_variables
   secrets               = []
 }
-
 ################################################################################
 # API Gateway — HTTP API in front of ALB
 #
@@ -538,28 +547,6 @@ module "api_gateway" {
   create_route53_record = false
   route53_zone_id       = ""
 }
-
-################################################################################
-# CloudWatch Synthetics — API canary
-#
-# Terraform creates infra (S3 bucket, IAM role, canary with bootstrap script,
-# alarm). GitHub Actions deploys the real script via:
-#   aws s3 cp canary.zip s3://<bucket>/canary-script/canary.zip
-#   aws synthetics update-canary --name ... --code s3Bucket=...,s3Key=...,s3ObjectVersion=...
-################################################################################
-
-module "synthetics" {
-  source = "../../../modules/synthetics"
-
-  env     = var.env
-  project = var.project
-
-  base_url              = "https://${var.api_domain}"
-  login_email           = var.canary_login_email
-  login_password        = var.canary_login_password
-  schedule_rate_minutes = var.canary_schedule_rate_minutes
-}
-
 ################################################################################
 # AWS Backup — S3 + RDS daily/monthly snapshots (HIPAA)
 ################################################################################
@@ -636,7 +623,29 @@ output "pipeline_name" {
   description = "CodePipeline name"
   value       = module.cicd.pipeline_name
 }
+################################################################################
+# API Gateway Outputs
+################################################################################
 
+output "api_gateway_endpoint" {
+  description = "Default API Gateway URL — test here before DNS cutover"
+  value       = module.api_gateway.api_endpoint
+}
+
+output "api_gateway_custom_domain_target" {
+  description = "Point your Route53 alias (api.stage.vocuone.ai) at this target"
+  value       = module.api_gateway.custom_domain_target
+}
+
+output "api_gateway_custom_domain_zone_id" {
+  description = "Hosted zone ID for the Route53 alias (pair with the target above)"
+  value       = module.api_gateway.custom_domain_hosted_zone_id
+
+
+
+
+
+}
 ################################################################################
 # RDS Outputs
 ################################################################################
@@ -712,38 +721,5 @@ output "backup_vault_name" {
 output "backup_vault_arn" {
   description = "AWS Backup vault ARN"
   value       = module.backup.vault_arn
-}
-
-################################################################################
-# API Gateway Outputs
-################################################################################
-
-output "api_gateway_endpoint" {
-  description = "Default API Gateway URL — test here before DNS cutover"
-  value       = module.api_gateway.api_endpoint
-}
-
-output "api_gateway_custom_domain_target" {
-  description = "Point your Route53 alias (api.stage.vocuone.ai) at this target"
-  value       = module.api_gateway.custom_domain_target
-}
-
-output "api_gateway_custom_domain_zone_id" {
-  description = "Hosted zone ID for the Route53 alias (pair with the target above)"
-  value       = module.api_gateway.custom_domain_hosted_zone_id
-}
-
-################################################################################
-# Synthetics Outputs
-################################################################################
-
-output "canary_name" {
-  description = "CloudWatch Synthetics canary name — pass this to GitHub Actions"
-  value       = module.synthetics.canary_name
-}
-
-output "canary_artifact_bucket" {
-  description = "S3 bucket where canary uploads script (canary-script/) and stores results"
-  value       = module.synthetics.artifact_bucket
 }
 
