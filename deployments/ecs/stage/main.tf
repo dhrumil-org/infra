@@ -401,7 +401,7 @@ module "ecs_service" {
     interval    = 30
     timeout     = 5
     retries     = 3
-    startPeriod = 120
+    startPeriod = 180
   }
 }
 
