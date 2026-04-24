@@ -104,6 +104,12 @@ module "cloudtrail" {
   aws_region     = var.aws_region
   aws_account_id = var.aws_account_id
   kms_key_arn    = module.kms.key_arns["logs"]
+
+  s3_data_event_bucket_arns = [
+    "arn:aws:s3:::${data.terraform_remote_state.bedrock_stage.outputs.primary_bucket_name}",
+    "arn:aws:s3:::${data.terraform_remote_state.bedrock_stage.outputs.secondary_bucket_name}",
+    "arn:aws:s3:::${data.terraform_remote_state.bedrock_stage.outputs.multimodal_bucket_name}",
+  ]
 }
 module "synthetics" {
   source = "../../../modules/synthetics"
@@ -316,6 +322,58 @@ module "ecr" {
 }
 
 ################################################################################
+# ALB Access Logs — S3 bucket (ELB service account needs PutObject)
+################################################################################
+
+resource "aws_s3_bucket" "alb_logs" {
+  bucket        = "${var.project}-${var.env}-alb-logs-${var.aws_account_id}"
+  force_destroy = true
+
+  tags = {
+    Name = "${var.project}-${var.env}-alb-logs"
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+
+  rule {
+    id     = "expire-old-logs"
+    status = "Enabled"
+    filter {}
+    expiration {
+      days = 90
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "alb_logs" {
+  bucket                  = aws_s3_bucket.alb_logs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_policy" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowELBLogs"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::127311923021:root"
+        }
+        Action   = "s3:PutObject"
+        Resource = "${aws_s3_bucket.alb_logs.arn}/${var.project}-${var.env}-alb/AWSLogs/${var.aws_account_id}/*"
+      }
+    ]
+  })
+}
+
+################################################################################
 # ALB — Application Load Balancer
 ################################################################################
 
@@ -331,6 +389,7 @@ module "alb" {
   acm_certificate_arn = var.acm_certificate_arn
   container_port      = var.container_port
   health_check_path   = var.health_check_path
+  access_logs_bucket  = aws_s3_bucket.alb_logs.id
 }
 
 ################################################################################

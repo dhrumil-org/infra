@@ -24,15 +24,15 @@ acm_certificate_arn = "arn:aws:acm:us-east-1:499290259511:certificate/76546c9c-d
 health_check_path   = "/health"
 
 # RDS
-db_engine_version          = "16.4"
+db_engine_version          = "16.6"
 db_instance_class          = "db.t3.micro"
 db_allocated_storage       = 20
 db_name                    = "appdb"
 db_master_username         = "dbadmin"
 db_multi_az                = false
 db_backup_retention_period = 7
-db_deletion_protection     = false
-db_skip_final_snapshot     = true
+db_deletion_protection     = true
+db_skip_final_snapshot     = false
 db_apply_immediately       = true
 
 # App-facing DB secret (matches what Spring Boot reads)
@@ -49,7 +49,6 @@ app_cors_allowed_origins = "https://app.vocanote.ai,https://vocanote.ai,https://
 # Secrets the app reads at runtime via AWS SDK
 task_secret_arns = [
   "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/stage/*",
-  "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/prod/*",
 ]
 
 # Secrets Manager — 0 allows clean destroy/recreate without 7-day wait

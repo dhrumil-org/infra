@@ -207,6 +207,26 @@ resource "aws_cloudtrail" "this" {
     }
   }
 
+  # S3 object-level events on PHI buckets — HIPAA audit requirement
+  dynamic "advanced_event_selector" {
+    for_each = length(var.s3_data_event_bucket_arns) > 0 ? [1] : []
+    content {
+      name = "S3PHIDataEvents"
+      field_selector {
+        field  = "eventCategory"
+        equals = ["Data"]
+      }
+      field_selector {
+        field  = "resources.type"
+        equals = ["AWS::S3::Object"]
+      }
+      field_selector {
+        field       = "resources.ARN"
+        starts_with = [for arn in var.s3_data_event_bucket_arns : "${arn}/"]
+      }
+    }
+  }
+
   tags = {
     Name = "${var.project}-${var.env}-trail"
   }
