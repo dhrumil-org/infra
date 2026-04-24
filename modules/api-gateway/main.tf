@@ -43,11 +43,14 @@ resource "aws_apigatewayv2_integration" "alb" {
   integration_type   = "HTTP_PROXY"
   integration_method = "ANY"
 
-  # HTTP (not HTTPS) — API Gateway can't verify the ALB's cert since the
-  # cert is issued for api.stage.vocuone.ai but the SNI hostname here is
-  # the ALB's elb.amazonaws.com DNS. Traffic between API Gateway and ALB
-  # stays inside AWS's private network, so HTTP is fine.
-  integration_uri = "http://${var.alb_dns_name}"
+  # HTTPS with explicit SNI — connects to the ALB's elb.amazonaws.com DNS
+  # but sends SNI "api.stage.vocuone.ai" so the ALB's ACM cert validates.
+  # CodeDeploy manages the HTTPS listener, so this always hits the live TG.
+  integration_uri = "https://${var.alb_dns_name}"
+
+  tls_config {
+    server_name_to_verify = var.api_domain
+  }
 
   # Overwrite the path the backend sees — use the captured proxy variable
   # so /health → /health (not /{proxy})
