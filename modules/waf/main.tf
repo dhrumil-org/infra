@@ -1,6 +1,6 @@
 resource "aws_wafv2_web_acl" "this" {
   name        = "${var.project}-${var.env}-waf"
-  description = "WAF for ${var.project}-${var.env} — rate limiting only"
+  description = "WAF for ${var.project}-${var.env} - rate limiting only"
   scope       = "REGIONAL"
 
   default_action {
