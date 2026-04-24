@@ -626,7 +626,7 @@ module "waf" {
   aws_region     = var.aws_region
   aws_account_id = var.aws_account_id
 
-  associated_resource_arn = module.api_gateway.stage_arn
+  associated_resource_arn = module.alb.alb_arn
   rate_limit_per_ip       = var.waf_rate_limit_per_ip
 }
 
