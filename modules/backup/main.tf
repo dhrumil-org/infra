@@ -84,7 +84,7 @@ resource "aws_backup_plan" "daily" {
   rule {
     rule_name         = "daily-30-days"
     target_vault_name = aws_backup_vault.this.name
-    schedule          = "cron(0 2 * * ? *)" # 2 AM UTC every day
+    schedule          = "cron(0 5 * * ? *)" # 5 AM UTC — after RDS automated backup window (03:00-04:00 UTC)
 
     start_window      = 60  # start within 60 min of scheduled time
     completion_window = 180 # must complete within 3 hours
