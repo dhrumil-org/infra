@@ -46,7 +46,7 @@ variable "aws_region" {
 }
 
 variable "enable_bedrock_endpoints" {
-  description = "Create VPC Interface Endpoints for Bedrock so traffic stays off the public internet"
+  description = "Create VPC endpoints for PHI services: S3, Secrets Manager, Transcribe, Bedrock"
   type        = bool
   default     = false
 }

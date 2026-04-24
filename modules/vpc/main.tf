@@ -194,7 +194,7 @@ resource "aws_flow_log" "this" {
 }
 
 ################################################################################
-# VPC Interface Endpoints — Bedrock (keeps PHI traffic off public internet)
+# VPC Endpoints — PHI services stay off public internet
 ################################################################################
 
 resource "aws_security_group" "endpoints" {
@@ -223,6 +223,63 @@ resource "aws_security_group" "endpoints" {
   }
 }
 
+# S3 — Gateway endpoint (free)
+resource "aws_vpc_endpoint" "s3" {
+  count = var.enable_bedrock_endpoints ? 1 : 0
+
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = concat(
+    aws_route_table.public[*].id,
+    aws_route_table.private[*].id,
+  )
+
+  tags = { Name = "${var.project}-${var.env}-s3-endpoint" }
+}
+
+# Secrets Manager
+resource "aws_vpc_endpoint" "secretsmanager" {
+  count = var.enable_bedrock_endpoints ? 1 : 0
+
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${var.aws_region}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = { Name = "${var.project}-${var.env}-secretsmanager-endpoint" }
+}
+
+# Transcribe (medical audio — PHI)
+resource "aws_vpc_endpoint" "transcribe" {
+  count = var.enable_bedrock_endpoints ? 1 : 0
+
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${var.aws_region}.transcribe"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = { Name = "${var.project}-${var.env}-transcribe-endpoint" }
+}
+
+resource "aws_vpc_endpoint" "transcribestreaming" {
+  count = var.enable_bedrock_endpoints ? 1 : 0
+
+  vpc_id              = aws_vpc.this.id
+  service_name        = "com.amazonaws.${var.aws_region}.transcribestreaming"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = aws_subnet.private[*].id
+  security_group_ids  = [aws_security_group.endpoints[0].id]
+  private_dns_enabled = true
+
+  tags = { Name = "${var.project}-${var.env}-transcribestreaming-endpoint" }
+}
+
+# Bedrock
 resource "aws_vpc_endpoint" "bedrock_runtime" {
   count = var.enable_bedrock_endpoints ? 1 : 0
 
@@ -233,9 +290,7 @@ resource "aws_vpc_endpoint" "bedrock_runtime" {
   security_group_ids  = [aws_security_group.endpoints[0].id]
   private_dns_enabled = true
 
-  tags = {
-    Name = "${var.project}-${var.env}-bedrock-runtime-endpoint"
-  }
+  tags = { Name = "${var.project}-${var.env}-bedrock-runtime-endpoint" }
 }
 
 resource "aws_vpc_endpoint" "bedrock_agent_runtime" {
@@ -248,7 +303,5 @@ resource "aws_vpc_endpoint" "bedrock_agent_runtime" {
   security_group_ids  = [aws_security_group.endpoints[0].id]
   private_dns_enabled = true
 
-  tags = {
-    Name = "${var.project}-${var.env}-bedrock-agent-runtime-endpoint"
-  }
+  tags = { Name = "${var.project}-${var.env}-bedrock-agent-runtime-endpoint" }
 }
