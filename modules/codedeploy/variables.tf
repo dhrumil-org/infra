@@ -29,6 +29,11 @@ variable "https_listener_arn" {
   type        = string
 }
 
+variable "http_listener_arn" {
+  description = "ALB HTTP listener ARN (port 80 — shifted alongside HTTPS by CodeDeploy)"
+  type        = string
+}
+
 variable "test_listener_arn" {
   description = "ALB test listener ARN (canary validation)"
   type        = string

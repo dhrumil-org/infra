@@ -38,6 +38,11 @@ output "https_listener_arn" {
   value       = aws_lb_listener.https.arn
 }
 
+output "http_listener_arn" {
+  description = "HTTP listener ARN (port 80 — managed by CodeDeploy alongside HTTPS)"
+  value       = aws_lb_listener.http.arn
+}
+
 output "test_listener_arn" {
   description = "Test listener ARN for CodeDeploy"
   value       = aws_lb_listener.test.arn
