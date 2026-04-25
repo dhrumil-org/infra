@@ -50,7 +50,7 @@ resource "aws_apigatewayv2_integration" "alb" {
     "overwrite:header.X-Gateway-Secret" = "'${var.gateway_secret}'"
   }
 
-  timeout_milliseconds = 29000
+  timeout_milliseconds = var.integration_timeout_ms
 }
 
 ################################################################################

@@ -682,6 +682,9 @@ module "api_gateway" {
   throttling_burst_limit = 500
   throttling_rate_limit  = 100
 
+  # Timeout — 60s requires Service Quotas increase (default AWS max is 29s)
+  integration_timeout_ms = 60000
+
   # Route53 management (manual DNS cutover recommended for first rollout)
   create_route53_record = false
   route53_zone_id       = ""

@@ -63,3 +63,9 @@ variable "create_route53_record" {
   type        = bool
   default     = false
 }
+
+variable "integration_timeout_ms" {
+  description = "Integration timeout in milliseconds. Default 29000 (AWS max). Increase via Service Quotas if needed."
+  type        = number
+  default     = 29000
+}
