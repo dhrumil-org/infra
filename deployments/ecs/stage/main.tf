@@ -682,8 +682,8 @@ module "api_gateway" {
   throttling_burst_limit = 500
   throttling_rate_limit  = 100
 
-  # Timeout — AWS hard limit is 30s for HTTP API, cannot be increased
-  integration_timeout_ms = 29000
+  # Timeout — REST API supports up to 60s with Service Quotas increase (approved)
+  integration_timeout_ms = 60000
 
   # Route53 management (manual DNS cutover recommended for first rollout)
   create_route53_record = false
