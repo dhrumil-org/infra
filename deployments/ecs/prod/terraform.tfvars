@@ -31,17 +31,18 @@ task_memory     = 4096
 acm_certificate_arn = "arn:aws:acm:us-east-1:499290259511:certificate/76546c9c-daec-44d0-9544-a2ff36dac831"
 health_check_path   = "/health"
 
-# RDS — Multi-AZ + deletion protection ON for prod
+# RDS — kept aligned with stage (Multi-AZ off, 7-day backups, apply immediately)
+# Flip db_multi_az + db_backup_retention_period when ready to harden prod.
 db_engine_version          = "16.6"
 db_instance_class          = "db.t3.medium"
 db_allocated_storage       = 50
 db_name                    = "appdb"
 db_master_username         = "dbadmin"
-db_multi_az                = true
-db_backup_retention_period = 30
+db_multi_az                = false
+db_backup_retention_period = 7
 db_deletion_protection     = true
 db_skip_final_snapshot     = false
-db_apply_immediately       = false
+db_apply_immediately       = true
 
 # App-facing DB secret (matches what Spring Boot reads)
 app_db_secret_name = "vocuone/prod/db"
@@ -59,12 +60,12 @@ task_secret_arns = [
   "arn:aws:secretsmanager:us-east-1:499290259511:secret:vocuone/prod/*",
 ]
 
-# Secrets Manager — keep 7-day window in prod (HIPAA / safety)
-secrets_recovery_window_in_days = 7
+# Secrets Manager — kept aligned with stage (0-day window allows clean recreate)
+secrets_recovery_window_in_days = 0
 
 # Public API
 api_domain                   = "api.vocuone.ai"
 app_cookie_domain            = "vocuone.ai"
-canary_schedule_rate_minutes = 15
-waf_rate_limit_per_ip        = 5000
+canary_schedule_rate_minutes = 60
+waf_rate_limit_per_ip        = 2000
 alerts_email                 = "developer@vocuone.ai"
