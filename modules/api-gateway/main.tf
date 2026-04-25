@@ -1,66 +1,157 @@
 ################################################################################
-# HTTP API Gateway — sits in front of ALB
+# REST API Gateway (v1) — sits in front of ALB
 #
-# Flow:  Client → Route53 (api.stage.vocuone.ai) → API Gateway → ALB → ECS
+# Flow:  Client → Route53 (api.stage.vocuone.ai) → REST API Gateway → ALB → ECS
 #
-# Gives you: throttling, access logs, CORS management, future authorizers.
-# Keeps your existing: ALB, CodeDeploy blue/green, CodePipeline, ECS service.
+# Using REST API (v1) instead of HTTP API (v2) to support timeout > 29s.
+# Timeout up to 60s requires Service Quotas increase (already approved).
 ################################################################################
 
+data "aws_region" "current" {}
+
 ################################################################################
-# HTTP API
+# CloudWatch Logging Role — required for REST API access logs
+#
+# aws_api_gateway_account is account-level (not per-API).
+# Safe to apply multiple times — Terraform manages it idempotently.
 ################################################################################
 
-resource "aws_apigatewayv2_api" "this" {
-  name          = "${var.project}-${var.env}-http-api"
-  protocol_type = "HTTP"
-  description   = "HTTP API in front of ALB for ${var.project}-${var.env}"
+resource "aws_iam_role" "apigw_logging" {
+  name = "${var.project}-${var.env}-apigw-logging-role"
 
-  tags = {
-    Name = "${var.project}-${var.env}-http-api"
-  }
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "apigateway.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "${var.project}-${var.env}-apigw-logging-role" }
+}
+
+resource "aws_iam_role_policy_attachment" "apigw_logging" {
+  role       = aws_iam_role.apigw_logging.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
+
+resource "aws_api_gateway_account" "this" {
+  cloudwatch_role_arn = aws_iam_role.apigw_logging.arn
 }
 
 ################################################################################
-# Integration — HTTP_PROXY to ALB
-#
-# Forwards all requests to the ALB's HTTPS listener.
-# ALB stays public (for blue/green + direct health checks) but traffic comes
-# through API Gateway at the domain level.
+# REST API
 ################################################################################
 
-resource "aws_apigatewayv2_integration" "alb" {
-  api_id             = aws_apigatewayv2_api.this.id
-  integration_type   = "HTTP_PROXY"
-  integration_method = "ANY"
+resource "aws_api_gateway_rest_api" "this" {
+  name        = "${var.project}-${var.env}-api"
+  description = "REST API for ${var.project}-${var.env}"
 
-  # HTTPS with explicit SNI — connects to the ALB's elb.amazonaws.com DNS
-  # but sends SNI "api.stage.vocuone.ai" so the ALB's ACM cert validates.
-  # CodeDeploy manages the HTTPS listener, so this always hits the live TG.
-  integration_uri = "https://${var.alb_dns_name}"
-
-  tls_config {
-    server_name_to_verify = var.api_domain
+  endpoint_configuration {
+    types = ["REGIONAL"]
   }
 
-  # Overwrite the path the backend sees — use the captured proxy variable
-  # so /health → /health (not /{proxy})
-  request_parameters = {
-    "overwrite:path"                    = "/$request.path.proxy"
-    "overwrite:header.X-Gateway-Secret" = "'${var.gateway_secret}'"
-  }
+  tags = { Name = "${var.project}-${var.env}-api" }
+}
+
+################################################################################
+# Root resource — ANY /
+################################################################################
+
+resource "aws_api_gateway_method" "root" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  resource_id   = aws_api_gateway_rest_api.this.root_resource_id
+  http_method   = "ANY"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "root" {
+  rest_api_id             = aws_api_gateway_rest_api.this.id
+  resource_id             = aws_api_gateway_rest_api.this.root_resource_id
+  http_method             = aws_api_gateway_method.root.http_method
+  integration_http_method = "ANY"
+  type                    = "HTTP_PROXY"
+  uri                     = "https://${var.alb_dns_name}/"
 
   timeout_milliseconds = var.integration_timeout_ms
+
+  tls_config {
+    insecure_skip_verification = false
+  }
+
+  request_parameters = {
+    "integration.request.header.X-Gateway-Secret" = "'${var.gateway_secret}'"
+  }
 }
 
 ################################################################################
-# Catch-all route — ANY /{proxy+} → integration
+# Proxy resource — ANY /{proxy+}
 ################################################################################
 
-resource "aws_apigatewayv2_route" "proxy" {
-  api_id    = aws_apigatewayv2_api.this.id
-  route_key = "ANY /{proxy+}"
-  target    = "integrations/${aws_apigatewayv2_integration.alb.id}"
+resource "aws_api_gateway_resource" "proxy" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  parent_id   = aws_api_gateway_rest_api.this.root_resource_id
+  path_part   = "{proxy+}"
+}
+
+resource "aws_api_gateway_method" "proxy" {
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  resource_id   = aws_api_gateway_resource.proxy.id
+  http_method   = "ANY"
+  authorization = "NONE"
+
+  request_parameters = {
+    "method.request.path.proxy" = true
+  }
+}
+
+resource "aws_api_gateway_integration" "proxy" {
+  rest_api_id             = aws_api_gateway_rest_api.this.id
+  resource_id             = aws_api_gateway_resource.proxy.id
+  http_method             = aws_api_gateway_method.proxy.http_method
+  integration_http_method = "ANY"
+  type                    = "HTTP_PROXY"
+  uri                     = "https://${var.alb_dns_name}/{proxy}"
+
+  timeout_milliseconds = var.integration_timeout_ms
+
+  tls_config {
+    insecure_skip_verification = false
+  }
+
+  request_parameters = {
+    "integration.request.path.proxy"              = "method.request.path.proxy"
+    "integration.request.header.X-Gateway-Secret" = "'${var.gateway_secret}'"
+  }
+}
+
+################################################################################
+# Deployment — recreated on any config change
+################################################################################
+
+resource "aws_api_gateway_deployment" "this" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_method.root,
+      aws_api_gateway_integration.root,
+      aws_api_gateway_method.proxy,
+      aws_api_gateway_integration.proxy,
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  depends_on = [
+    aws_api_gateway_method.root,
+    aws_api_gateway_integration.root,
+    aws_api_gateway_method.proxy,
+    aws_api_gateway_integration.proxy,
+  ]
 }
 
 ################################################################################
@@ -72,84 +163,79 @@ resource "aws_cloudwatch_log_group" "access" {
   retention_in_days = var.log_retention_days
   kms_key_id        = var.kms_key_arn
 
-  tags = {
-    Name = "${var.project}-${var.env}-apigw-access-logs"
-  }
+  tags = { Name = "${var.project}-${var.env}-apigw-access-logs" }
 }
 
 ################################################################################
-# Stage — $default with auto-deploy + throttling + access logs
+# Stage — throttling + access logs
 ################################################################################
 
-resource "aws_apigatewayv2_stage" "default" {
-  api_id      = aws_apigatewayv2_api.this.id
-  name        = "$default"
-  auto_deploy = true
-
-  default_route_settings {
-    throttling_burst_limit = var.throttling_burst_limit
-    throttling_rate_limit  = var.throttling_rate_limit
-    detailed_metrics_enabled = true
-  }
+resource "aws_api_gateway_stage" "this" {
+  deployment_id = aws_api_gateway_deployment.this.id
+  rest_api_id   = aws_api_gateway_rest_api.this.id
+  stage_name    = var.env
 
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.access.arn
     format = jsonencode({
-      requestId                 = "$context.requestId"
-      sourceIp                  = "$context.identity.sourceIp"
-      requestTime               = "$context.requestTime"
-      httpMethod                = "$context.httpMethod"
-      routeKey                  = "$context.routeKey"
-      path                      = "$context.path"
-      status                    = "$context.status"
-      protocol                  = "$context.protocol"
-      responseLength            = "$context.responseLength"
-      integrationStatus         = "$context.integrationStatus"
-      integrationLatency        = "$context.integrationLatency"
-      integrationRequestId      = "$context.integration.requestId"
-      integrationError          = "$context.integration.error"
-      integrationErrorMessage   = "$context.integrationErrorMessage"
-      authorizerError           = "$context.authorizer.error"
-      errorMessage              = "$context.error.message"
-      errorResponseType         = "$context.error.responseType"
-      userAgent                 = "$context.identity.userAgent"
+      requestId          = "$context.requestId"
+      sourceIp           = "$context.identity.sourceIp"
+      requestTime        = "$context.requestTime"
+      httpMethod         = "$context.httpMethod"
+      resourcePath       = "$context.resourcePath"
+      status             = "$context.status"
+      protocol           = "$context.protocol"
+      responseLength     = "$context.responseLength"
+      integrationLatency = "$context.integrationLatency"
+      integrationStatus  = "$context.integrationStatus"
+      errorMessage       = "$context.error.message"
+      userAgent          = "$context.identity.userAgent"
     })
   }
 
-  tags = {
-    Name = "${var.project}-${var.env}-apigw-stage"
+  tags = { Name = "${var.project}-${var.env}-apigw-stage" }
+
+  depends_on = [aws_api_gateway_account.this]
+}
+
+resource "aws_api_gateway_method_settings" "this" {
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  stage_name  = aws_api_gateway_stage.this.stage_name
+  method_path = "*/*"
+
+  settings {
+    throttling_burst_limit = var.throttling_burst_limit
+    throttling_rate_limit  = var.throttling_rate_limit
+    metrics_enabled        = true
+    logging_level          = "INFO"
+    data_trace_enabled     = false
   }
 }
 
 ################################################################################
-# Custom Domain — api.stage.vocuone.ai points here instead of ALB
+# Custom Domain
 ################################################################################
 
-resource "aws_apigatewayv2_domain_name" "this" {
-  domain_name = var.api_domain
+resource "aws_api_gateway_domain_name" "this" {
+  domain_name              = var.api_domain
+  regional_certificate_arn = var.acm_certificate_arn
+  security_policy          = "TLS_1_2"
 
-  domain_name_configuration {
-    certificate_arn = var.acm_certificate_arn
-    endpoint_type   = "REGIONAL"
-    security_policy = "TLS_1_2"
+  endpoint_configuration {
+    types = ["REGIONAL"]
   }
 
-  tags = {
-    Name = "${var.project}-${var.env}-apigw-domain"
-  }
+  tags = { Name = "${var.project}-${var.env}-apigw-domain" }
 }
 
-resource "aws_apigatewayv2_api_mapping" "this" {
-  api_id      = aws_apigatewayv2_api.this.id
-  domain_name = aws_apigatewayv2_domain_name.this.id
-  stage       = aws_apigatewayv2_stage.default.id
+resource "aws_api_gateway_base_path_mapping" "this" {
+  api_id      = aws_api_gateway_rest_api.this.id
+  stage_name  = aws_api_gateway_stage.this.stage_name
+  domain_name = aws_api_gateway_domain_name.this.domain_name
 }
 
 ################################################################################
-# Route53 — point api_domain at API Gateway (instead of ALB)
-#
-# Set create_route53_record = false if you want to manage DNS manually
-# or if another resource already owns this record.
+# Route53 — optional, set create_route53_record = true to manage DNS
 ################################################################################
 
 resource "aws_route53_record" "this" {
@@ -160,8 +246,8 @@ resource "aws_route53_record" "this" {
   type    = "A"
 
   alias {
-    name                   = aws_apigatewayv2_domain_name.this.domain_name_configuration[0].target_domain_name
-    zone_id                = aws_apigatewayv2_domain_name.this.domain_name_configuration[0].hosted_zone_id
+    name                   = aws_api_gateway_domain_name.this.regional_domain_name
+    zone_id                = aws_api_gateway_domain_name.this.regional_zone_id
     evaluate_target_health = false
   }
 }
