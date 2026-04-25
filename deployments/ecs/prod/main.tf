@@ -4,15 +4,15 @@ data "aws_secretsmanager_secret_version" "canary" {
   secret_id = "vocuone/prod/canary"
 }
 
-# Pull Bedrock IDs dynamically from bedrock remote state.
-# TEMPORARY: prod is reusing the stage Bedrock KB / agent until prod Bedrock
-# resources are stood up. When you create deployments/bedrock/prod, switch
-# the key below to "bedrock/prod/terraform.tfstate".
+# Pull Bedrock IDs dynamically from bedrock/prod remote state.
+# Apply deployments/bedrock/prod BEFORE this stack so the state file exists.
+# (Local data source name kept as `bedrock_stage` for parity with stage main.tf
+#  — references throughout this file use that key.)
 data "terraform_remote_state" "bedrock_stage" {
   backend = "s3"
   config = {
     bucket = "vocuone-terraform-state-499290259511"
-    key    = "bedrock/stage/terraform.tfstate"
+    key    = "bedrock/prod/terraform.tfstate"
     region = "us-east-1"
   }
 }
