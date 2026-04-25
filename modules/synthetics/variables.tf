@@ -44,3 +44,9 @@ variable "extra_env_vars" {
   type        = map(string)
   default     = {}
 }
+
+variable "alarm_sns_topic_arn" {
+  description = "SNS topic ARN to notify on canary alarm state changes"
+  type        = string
+  default     = ""
+}

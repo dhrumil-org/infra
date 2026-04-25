@@ -115,6 +115,24 @@ module "cloudtrail" {
     "arn:aws:s3:::${data.terraform_remote_state.bedrock_stage.outputs.multimodal_bucket_name}",
   ]
 }
+################################################################################
+# SNS Topic — alert notifications (canary + ECS alarms)
+################################################################################
+
+resource "aws_sns_topic" "alerts" {
+  name = "${var.project}-${var.env}-alerts"
+
+  tags = {
+    Name = "${var.project}-${var.env}-alerts"
+  }
+}
+
+resource "aws_sns_topic_subscription" "alerts_email" {
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = var.alerts_email
+}
+
 module "synthetics" {
   source = "../../../modules/synthetics"
 
@@ -125,6 +143,57 @@ module "synthetics" {
   login_email           = jsondecode(data.aws_secretsmanager_secret_version.canary.secret_string)["email"]
   login_password        = jsondecode(data.aws_secretsmanager_secret_version.canary.secret_string)["password"]
   schedule_rate_minutes = var.canary_schedule_rate_minutes
+  alarm_sns_topic_arn   = aws_sns_topic.alerts.arn
+}
+
+################################################################################
+# CloudWatch Alarms — ECS CPU and Memory
+################################################################################
+
+resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
+  alarm_name          = "${var.project}-${var.env}-ecs-cpu-high"
+  alarm_description   = "ECS CPU utilization above 50%"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 50
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ClusterName = module.ecs_cluster.cluster_name
+    ServiceName = module.ecs_service.service_name
+  }
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+
+  tags = { Name = "${var.project}-${var.env}-ecs-cpu-high" }
+}
+
+resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
+  alarm_name          = "${var.project}-${var.env}-ecs-memory-high"
+  alarm_description   = "ECS memory utilization above 50%"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "MemoryUtilization"
+  namespace           = "AWS/ECS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 50
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    ClusterName = module.ecs_cluster.cluster_name
+    ServiceName = module.ecs_service.service_name
+  }
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+
+  tags = { Name = "${var.project}-${var.env}-ecs-memory-high" }
 }
 ################################################################################
 # KMS Keys — Encryption at rest (HIPAA)

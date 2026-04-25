@@ -162,5 +162,7 @@ resource "aws_cloudwatch_metric_alarm" "canary_failed" {
   threshold           = 100
   treat_missing_data  = "breaching"
   dimensions          = { CanaryName = aws_synthetics_canary.this.name }
+  alarm_actions       = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
+  ok_actions          = var.alarm_sns_topic_arn != "" ? [var.alarm_sns_topic_arn] : []
   tags                = { Name = "${var.project}-${var.env}-canary-failed" }
 }

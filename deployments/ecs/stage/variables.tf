@@ -219,20 +219,6 @@ variable "api_domain" {
   default     = "api.stage.vocuone.ai"
 }
 
-variable "canary_login_email" {
-  description = "Test account email for canary login flow (leave empty to skip auth step)"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "canary_login_password" {
-  description = "Test account password for canary login flow"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
 variable "canary_schedule_rate_minutes" {
   description = "How often the canary runs, in minutes"
   type        = number
@@ -243,4 +229,9 @@ variable "waf_rate_limit_per_ip" {
   description = "Max requests per IP per 5 minutes before WAF blocks"
   type        = number
   default     = 2000
+}
+
+variable "alerts_email" {
+  description = "Email address to receive CloudWatch alarm notifications"
+  type        = string
 }
