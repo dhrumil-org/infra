@@ -72,13 +72,9 @@ resource "aws_api_gateway_integration" "root" {
   http_method             = aws_api_gateway_method.root.http_method
   integration_http_method = "ANY"
   type                    = "HTTP_PROXY"
-  uri                     = "https://${var.alb_dns_name}/"
+  uri                     = "http://${var.alb_dns_name}/"
 
   timeout_milliseconds = var.integration_timeout_ms
-
-  tls_config {
-    insecure_skip_verification = true
-  }
 
   request_parameters = {
     "integration.request.header.X-Gateway-Secret" = "'${var.gateway_secret}'"
@@ -112,13 +108,9 @@ resource "aws_api_gateway_integration" "proxy" {
   http_method             = aws_api_gateway_method.proxy.http_method
   integration_http_method = "ANY"
   type                    = "HTTP_PROXY"
-  uri                     = "https://${var.alb_dns_name}/{proxy}"
+  uri                     = "http://${var.alb_dns_name}/{proxy}"
 
   timeout_milliseconds = var.integration_timeout_ms
-
-  tls_config {
-    insecure_skip_verification = true
-  }
 
   request_parameters = {
     "integration.request.path.proxy"              = "method.request.path.proxy"
