@@ -59,7 +59,7 @@ api_domain                   = "stage-api.vocuone.ai"
 app_cookie_domain            = "vocuone.ai"
 canary_schedule_rate_minutes = 60
 waf_rate_limit_per_ip        = 2000
-alerts_email                 = "bhargav.g.912@gmail.com"
+alerts_email                 = "developer@vocuone.ai"
 
 
 
