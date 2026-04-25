@@ -77,7 +77,7 @@ resource "aws_api_gateway_integration" "root" {
   timeout_milliseconds = var.integration_timeout_ms
 
   tls_config {
-    insecure_skip_verification = false
+    insecure_skip_verification = true
   }
 
   request_parameters = {
@@ -117,7 +117,7 @@ resource "aws_api_gateway_integration" "proxy" {
   timeout_milliseconds = var.integration_timeout_ms
 
   tls_config {
-    insecure_skip_verification = false
+    insecure_skip_verification = true
   }
 
   request_parameters = {
