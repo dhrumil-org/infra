@@ -127,10 +127,13 @@ resource "aws_api_gateway_deployment" "this" {
 
   triggers = {
     redeployment = sha1(jsonencode([
-      aws_api_gateway_method.root,
-      aws_api_gateway_integration.root,
-      aws_api_gateway_method.proxy,
-      aws_api_gateway_integration.proxy,
+      aws_api_gateway_resource.proxy.id,
+      aws_api_gateway_method.root.id,
+      aws_api_gateway_method.proxy.id,
+      aws_api_gateway_integration.root.uri,
+      aws_api_gateway_integration.proxy.uri,
+      aws_api_gateway_integration.root.timeout_milliseconds,
+      aws_api_gateway_integration.proxy.timeout_milliseconds,
     ]))
   }
 
