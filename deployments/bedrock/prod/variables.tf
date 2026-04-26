@@ -130,3 +130,9 @@ variable "agent_instruction" {
   description = "Instructions that define the agent behaviour"
   type        = string
 }
+
+variable "attach_kb_policy_to_ecs_task_role" {
+  description = "When true, attach the KB-access IAM policy to the ECS task role. Set false on first apply (the role doesn't exist yet); flip to true after deployments/ecs/prod has been applied."
+  type        = bool
+  default     = false
+}

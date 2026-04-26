@@ -63,21 +63,23 @@ module "bedrock_kb" {
 ################################################################################
 # Attach KB access policy to ECS task role
 #
-# Looks up the role by name — no remote state dependency.
-# Role name follows the ecs-service module convention:
-#   {project}-{env}-{service_name}-task-role → vocuone-stage-app-task-role
-#
-# NOTE: Only enable AFTER the ECS stack has been created (the role must exist).
-# First deploy: terraform apply (creates KB + agent)
-# After ECS deploy: uncomment and terraform apply again
+# Chicken-and-egg: ECS prod creates the task role; this stack creates the KB
+# policy. So the order is:
+#   1. terraform apply with attach_kb_policy_to_ecs_task_role = false (default)
+#      → KB + agent created, no role lookup
+#   2. Apply deployments/ecs/prod (creates task role)
+#   3. Set attach_kb_policy_to_ecs_task_role = true in tfvars and re-apply
+#      → policy attached
 ################################################################################
 
 data "aws_iam_role" "ecs_task" {
-  name = "${var.project}-${var.env}-app-task-role"
+  count = var.attach_kb_policy_to_ecs_task_role ? 1 : 0
+  name  = "${var.project}-${var.env}-app-task-role"
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_kb_access" {
-  role       = data.aws_iam_role.ecs_task.name
+  count      = var.attach_kb_policy_to_ecs_task_role ? 1 : 0
+  role       = data.aws_iam_role.ecs_task[0].name
   policy_arn = module.bedrock_kb.kb_access_policy_arn
 }
 
