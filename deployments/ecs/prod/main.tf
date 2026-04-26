@@ -741,7 +741,7 @@ module "waf" {
 
 resource "aws_wafv2_web_acl" "alb_gate" {
   name        = "${var.project}-${var.env}-alb-gate"
-  description = "Block direct ALB hits; require X-Gateway-Secret header"
+  description = "Block direct ALB hits - require X-Gateway-Secret header from API Gateway"
   scope       = "REGIONAL"
 
   default_action {
