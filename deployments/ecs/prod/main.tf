@@ -44,6 +44,22 @@ locals {
       name  = "aws.secrets.db-secret-name"
       value = var.app_db_secret_name
     },
+    # Other secret-name overrides — needed because the stage image has
+    # vocuone/stage/* paths baked into application.properties. Until the
+    # main branch publishes a proper prod image, these env vars steer the
+    # app to the prod secrets it actually has IAM permission to read.
+    {
+      name  = "aws.secrets.google-secret-name"
+      value = "vocuone/prod/google-calendar"
+    },
+    {
+      name  = "aws.secrets.sentry-secret-name"
+      value = "vocuone/prod/sentry"
+    },
+    {
+      name  = "aws.secrets.sendgrid-secret-name"
+      value = "vocuone/prod/sendgrid"
+    },
     {
       name  = "APP_EMAIL_REDIRECT_URL"
       value = var.app_email_redirect_url
@@ -709,6 +725,74 @@ module "waf" {
 
   associated_resource_arn = module.api_gateway.stage_arn
   rate_limit_per_ip       = var.waf_rate_limit_per_ip
+}
+
+################################################################################
+# ALB header gate — block direct ALB hits that bypass API Gateway
+#
+# The ALB DNS is internet-facing. Without this, anyone could send requests
+# directly to the ALB, bypassing API Gateway + WAF + throttling. This second
+# WAF Web ACL sits on the ALB itself and rejects any request that doesn't
+# carry the X-Gateway-Secret header (set by API Gateway integrations).
+#
+# Effect: edge attackers hitting the ALB DNS get a 403 at the WAF layer,
+# never reach ECS, never burn app CPU. CloudWatch metrics show the blocks.
+################################################################################
+
+resource "aws_wafv2_web_acl" "alb_gate" {
+  name        = "${var.project}-${var.env}-alb-gate"
+  description = "Block direct ALB hits; require X-Gateway-Secret header"
+  scope       = "REGIONAL"
+
+  default_action {
+    block {}
+  }
+
+  rule {
+    name     = "AllowApiGatewayTraffic"
+    priority = 1
+
+    action {
+      allow {}
+    }
+
+    statement {
+      byte_match_statement {
+        positional_constraint = "EXACTLY"
+        search_string         = random_password.gateway_secret.result
+
+        field_to_match {
+          single_header {
+            name = "x-gateway-secret"
+          }
+        }
+
+        text_transformation {
+          priority = 0
+          type     = "NONE"
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project}${var.env}albgateallow"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${var.project}${var.env}albgate"
+    sampled_requests_enabled   = true
+  }
+
+  tags = { Name = "${var.project}-${var.env}-alb-gate" }
+}
+
+resource "aws_wafv2_web_acl_association" "alb_gate" {
+  resource_arn = module.alb.alb_arn
+  web_acl_arn  = aws_wafv2_web_acl.alb_gate.arn
 }
 
 ################################################################################
