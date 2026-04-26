@@ -3,10 +3,45 @@
 # rest of the env's "encrypt everything" posture for HIPAA-clean audit answers)
 ################################################################################
 
+data "aws_caller_identity" "current" {}
+
 resource "aws_kms_key" "frontend" {
   description             = "KMS key for ${var.project}-${var.env} frontend S3 bucket"
   deletion_window_in_days = 30
   enable_key_rotation     = true
+
+  # Default key policies only authorize the account root. CloudFront's
+  # Origin Access Control reads objects via its service principal, so
+  # decrypt has to be explicitly granted; otherwise GetObject succeeds
+  # at the bucket layer but fails inside KMS and CloudFront returns
+  # AccessDenied to the browser.
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnableRootAccountAdmin"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        Sid       = "AllowCloudFrontDecrypt"
+        Effect    = "Allow"
+        Principal = { Service = "cloudfront.amazonaws.com" }
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey",
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = module.cloudfront.distribution_arn
+          }
+        }
+      },
+    ]
+  })
 
   tags = {
     Name = "${var.project}-${var.env}-frontend"
