@@ -19,7 +19,13 @@ variable "s3_bucket_arns" {
 }
 
 variable "rds_arn" {
-  description = "RDS instance ARN to back up (leave empty string to skip)"
+  description = "RDS instance ARN to back up. Only consulted when enable_rds_backup = true."
   type        = string
   default     = ""
+}
+
+variable "enable_rds_backup" {
+  description = "Toggle for the RDS backup selection. Use a static boolean (not derived from a resource attribute) so Terraform can evaluate count at plan time."
+  type        = bool
+  default     = true
 }

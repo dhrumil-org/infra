@@ -147,7 +147,7 @@ resource "aws_backup_selection" "daily_s3" {
 }
 
 resource "aws_backup_selection" "daily_rds" {
-  count = length(var.rds_arn) > 0 ? 1 : 0
+  count = var.enable_rds_backup ? 1 : 0
 
   name         = "${var.project}-${var.env}-daily-rds"
   iam_role_arn = aws_iam_role.backup.arn
@@ -166,7 +166,7 @@ resource "aws_backup_selection" "monthly_s3" {
 }
 
 resource "aws_backup_selection" "monthly_rds" {
-  count = length(var.rds_arn) > 0 ? 1 : 0
+  count = var.enable_rds_backup ? 1 : 0
 
   name         = "${var.project}-${var.env}-monthly-rds"
   iam_role_arn = aws_iam_role.backup.arn
