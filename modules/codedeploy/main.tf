@@ -27,9 +27,11 @@ resource "aws_codedeploy_deployment_group" "this" {
   }
 
   blue_green_deployment_config {
+    # CONTINUE_DEPLOYMENT: traffic auto-shifts to the replacement task set
+    # the moment its target group reports healthy. Failures still trigger
+    # auto_rollback_configuration on DEPLOYMENT_FAILURE — that gate stays.
     deployment_ready_option {
-      action_on_timeout    = "STOP_DEPLOYMENT"
-      wait_time_in_minutes = 10
+      action_on_timeout = "CONTINUE_DEPLOYMENT"
     }
 
     terminate_blue_instances_on_deployment_success {
