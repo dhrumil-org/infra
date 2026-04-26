@@ -33,7 +33,7 @@ health_check_path   = "/health"
 
 # RDS — kept aligned with stage (Multi-AZ off, 7-day backups, apply immediately)
 # Flip db_multi_az + db_backup_retention_period when ready to harden prod.
-db_engine_version          = "16.6"
+db_engine_version          = "16.11"
 db_instance_class          = "db.t3.medium"
 db_allocated_storage       = 50
 db_name                    = "appdb"
