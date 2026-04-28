@@ -632,6 +632,10 @@ module "cicd" {
   codedeploy_app_name              = module.codedeploy.app_name
   codedeploy_deployment_group_name = module.codedeploy.deployment_group_name
 
+  # Post-deploy listener sync — re-aligns ALB port 80 with port 443 after every
+  # blue/green promotion so API Gateway HTTP_PROXY keeps reaching live tasks.
+  alb_name = "${var.project}-${var.env}-alb"
+
   ecs_task_role_arns = [
     module.ecs_service.task_execution_role_arn,
     module.ecs_service.task_role_arn,
