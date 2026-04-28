@@ -110,9 +110,3 @@ variable "secrets" {
   }))
   default = []
 }
-
-variable "alb_name" {
-  description = "Name of the ALB whose port-80 listener should be re-aligned to port 443's target group after each successful CodeDeploy promotion. Empty disables the post-deploy sync stage."
-  type        = string
-  default     = ""
-}
