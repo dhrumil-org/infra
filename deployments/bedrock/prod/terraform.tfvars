@@ -230,3 +230,4 @@ DO NOT stop and ask for additional information after finding the denial letter. 
 - If multiple denial letters: Ask which claim to appeal
 - If partial information: Extract what you can and ask for missing details
 EOT
+attach_kb_policy_to_ecs_task_role = true

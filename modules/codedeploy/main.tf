@@ -53,7 +53,9 @@ resource "aws_codedeploy_deployment_group" "this" {
   load_balancer_info {
     target_group_pair_info {
       prod_traffic_route {
-        listener_arns = [var.https_listener_arn]
+        listener_arns = [
+          var.https_listener_arn
+        ]
       }
 
       test_traffic_route {
@@ -102,3 +104,5 @@ resource "aws_iam_role_policy_attachment" "codedeploy" {
   role       = aws_iam_role.codedeploy.name
   policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
 }
+
+

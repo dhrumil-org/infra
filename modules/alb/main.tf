@@ -118,14 +118,15 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
 
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.blue.arn
-  }
+default_action {
+  type = "redirect"
 
-  lifecycle {
-    ignore_changes = [default_action]
+  redirect {
+    port        = "443"
+    protocol    = "HTTPS"
+    status_code = "HTTP_301"
   }
+}
 }
 
 ################################################################################
@@ -142,9 +143,5 @@ resource "aws_lb_listener" "test" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.green.arn
-  }
-
-  lifecycle {
-    ignore_changes = [default_action]
   }
 }
