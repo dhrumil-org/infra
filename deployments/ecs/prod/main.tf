@@ -627,6 +627,7 @@ module "codedeploy" {
   ecs_cluster_name       = module.ecs_cluster.cluster_name
   ecs_service_name       = module.ecs_service.service_name
   https_listener_arn     = module.alb.https_listener_arn
+  http_listener_arn      = module.alb.http_listener_arn
   test_listener_arn      = module.alb.test_listener_arn
   blue_target_group_name = module.alb.blue_target_group_name
   green_target_group_name = module.alb.green_target_group_name

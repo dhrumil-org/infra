@@ -118,15 +118,18 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
 
-default_action {
-  type = "redirect"
-
-  redirect {
-    port        = "443"
-    protocol    = "HTTPS"
-    status_code = "HTTP_301"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.blue.arn
   }
-}
+
+  # CodeDeploy manages this listener's default_action during blue/green
+  # promotions (it's now listed in prod_traffic_route alongside HTTPS:443).
+  # Terraform must ignore the runtime-flipping target group ARN, otherwise
+  # every plan would try to revert it back to blue.
+  lifecycle {
+    ignore_changes = [default_action]
+  }
 }
 
 ################################################################################

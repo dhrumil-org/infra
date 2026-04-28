@@ -25,13 +25,17 @@ variable "ecs_service_name" {
 }
 
 variable "https_listener_arn" {
-  description = "ALB HTTPS listener ARN (production traffic)"
+  description = "ALB HTTPS listener ARN (production traffic, port 443)"
   type        = string
 }
 
+variable "http_listener_arn" {
+  description = "ALB HTTP listener ARN (port 80, used by API Gateway HTTP_PROXY integration). Listed alongside the HTTPS listener so blue/green deploys swap both in lockstep."
+  type        = string
+}
 
 variable "test_listener_arn" {
-  description = "ALB test listener ARN (canary validation)"
+  description = "ALB test listener ARN (canary validation, port 8443)"
   type        = string
 }
 
