@@ -72,19 +72,9 @@ resource "aws_api_gateway_integration" "root" {
   http_method             = aws_api_gateway_method.root.http_method
   integration_http_method = "ANY"
   type                    = "HTTP_PROXY"
-
-  # Use HTTPS:443 so we ride the listener that CodeDeploy keeps in sync
-  # with the live target group during blue/green promotions. The ALB cert
-  # is for *.vocuone.ai but the integration URI uses the ELB hostname,
-  # so SNI/cert validation has to be skipped — traffic stays inside the
-  # AWS network so this is acceptable per the AWS BAA.
-  uri = "https://${var.alb_dns_name}/"
+  uri                     = "http://${var.alb_dns_name}/"
 
   timeout_milliseconds = var.integration_timeout_ms
-
-  tls_config {
-    insecure_skip_verification = true
-  }
 
   request_parameters = {
     "integration.request.header.X-Gateway-Secret" = "'${var.gateway_secret}'"
@@ -118,13 +108,9 @@ resource "aws_api_gateway_integration" "proxy" {
   http_method             = aws_api_gateway_method.proxy.http_method
   integration_http_method = "ANY"
   type                    = "HTTP_PROXY"
-  uri                     = "https://${var.alb_dns_name}/{proxy}"
+  uri                     = "http://${var.alb_dns_name}/{proxy}"
 
   timeout_milliseconds = var.integration_timeout_ms
-
-  tls_config {
-    insecure_skip_verification = true
-  }
 
   request_parameters = {
     "integration.request.path.proxy"              = "method.request.path.proxy"

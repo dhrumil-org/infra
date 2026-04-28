@@ -118,17 +118,19 @@ resource "aws_lb_listener" "http" {
   port              = 80
   protocol          = "HTTP"
 
-  # Port 80 just redirects browsers to HTTPS:443. API Gateway no longer
-  # uses port 80 for its integration (it now uses 443 directly), so this
-  # listener has no production-traffic role and stays simple.
+  # API Gateway HTTP_PROXY integration hits this listener. CodeDeploy ECS
+  # only manages one listener (HTTPS:443), so port 80 can drift to the
+  # empty old target group after a blue/green promotion. Workaround: after
+  # every successful deploy, manually swap port 80 to whatever target
+  # group port 443 is currently on (see runbook). The lifecycle block
+  # tells terraform not to fight the manual swap.
   default_action {
-    type = "redirect"
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.blue.arn
+  }
 
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
+  lifecycle {
+    ignore_changes = [default_action]
   }
 }
 
