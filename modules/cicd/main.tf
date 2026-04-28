@@ -57,8 +57,9 @@ resource "local_file" "taskdef" {
 
 resource "local_file" "appspec" {
   content = templatefile("${path.module}/appspec.yaml.tpl", {
-    container_name = var.container_name
-    container_port = var.container_port
+    container_name              = var.container_name
+    container_port              = var.container_port
+    before_allow_traffic_lambda = var.before_allow_traffic_lambda
   })
   filename = "${path.module}/generated/appspec.yaml"
 }
@@ -280,9 +281,19 @@ resource "aws_iam_role_policy" "codepipeline_extra" {
         Action = [
           "elasticloadbalancing:DescribeTargetGroups",
           "elasticloadbalancing:DescribeListeners",
+          "elasticloadbalancing:DescribeLoadBalancers",
           "elasticloadbalancing:ModifyListener",
           "elasticloadbalancing:DescribeRules",
           "elasticloadbalancing:ModifyRule"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "CodeBuildInvoke"
+        Effect = "Allow"
+        Action = [
+          "codebuild:StartBuild",
+          "codebuild:BatchGetBuilds",
         ]
         Resource = "*"
       }

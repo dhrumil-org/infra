@@ -110,3 +110,15 @@ variable "secrets" {
   }))
   default = []
 }
+
+variable "alb_name" {
+  description = "Name of the ALB whose port-80 listener should be re-aligned to port 443's target group after each successful CodeDeploy promotion. Empty disables the post-deploy sync stage."
+  type        = string
+  default     = ""
+}
+
+variable "before_allow_traffic_lambda" {
+  description = "Lambda function NAME to invoke as the CodeDeploy BeforeAllowTraffic hook. Empty omits the Hooks section from appspec.yaml. Used to pre-align the secondary ALB listener with the replacement target group at the exact moment of the prod listener swap."
+  type        = string
+  default     = ""
+}

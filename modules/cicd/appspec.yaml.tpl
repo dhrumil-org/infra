@@ -7,3 +7,7 @@ Resources:
         LoadBalancerInfo:
           ContainerName: "${container_name}"
           ContainerPort: ${container_port}
+%{ if before_allow_traffic_lambda != "" ~}
+Hooks:
+  - BeforeAllowTraffic: "${before_allow_traffic_lambda}"
+%{ endif ~}

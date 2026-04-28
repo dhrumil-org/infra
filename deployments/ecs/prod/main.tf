@@ -633,6 +633,21 @@ module "codedeploy" {
 }
 
 ################################################################################
+# Listener Pre-Sync — runs as CodeDeploy BeforeAllowTraffic hook so HTTP:80
+# follows HTTPS:443 atomically during every blue/green promotion.
+################################################################################
+
+module "listener_presync" {
+  source = "../../../modules/listener-presync"
+
+  env     = var.env
+  project = var.project
+
+  prod_listener_arn      = module.alb.https_listener_arn
+  secondary_listener_arn = module.alb.http_listener_arn
+}
+
+################################################################################
 # CI/CD Pipeline — Triggered by ECR image push
 ################################################################################
 
@@ -650,6 +665,10 @@ module "cicd" {
 
   codedeploy_app_name              = module.codedeploy.app_name
   codedeploy_deployment_group_name = module.codedeploy.deployment_group_name
+
+  # CodeDeploy BeforeAllowTraffic hook — pre-aligns HTTP:80 with the
+  # replacement target group right before the HTTPS:443 atomic swap.
+  before_allow_traffic_lambda = module.listener_presync.function_name
 
   ecs_task_role_arns = [
     module.ecs_service.task_execution_role_arn,
