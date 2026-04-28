@@ -25,12 +25,7 @@ variable "ecs_service_name" {
 }
 
 variable "https_listener_arn" {
-  description = "ALB HTTPS listener ARN (production traffic, port 443)"
-  type        = string
-}
-
-variable "http_listener_arn" {
-  description = "ALB HTTP listener ARN (port 80, used by API Gateway HTTP_PROXY integration). Listed alongside the HTTPS listener so blue/green deploys swap both in lockstep."
+  description = "ALB HTTPS listener ARN (production traffic, port 443). CodeDeploy ECS only allows one listener in prod_traffic_route, so this is the single one CodeDeploy swaps on blue/green promotion."
   type        = string
 }
 

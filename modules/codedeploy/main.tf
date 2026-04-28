@@ -52,17 +52,12 @@ resource "aws_codedeploy_deployment_group" "this" {
 
   load_balancer_info {
     target_group_pair_info {
-      # Both HTTPS:443 (public clients) and HTTP:80 (API Gateway HTTP_PROXY
-      # integration) carry production traffic — both must swap atomically
-      # to the new target group on every blue/green promotion. Listing only
-      # 443 here was the cause of the "port 80 stuck on empty target group"
-      # issue: the swapped 443 pointed at the live tasks while 80 stayed
-       # on the now-empty old target group, returning 503 to API Gateway.
+      # CodeDeploy ECS only accepts ONE listener in prod_traffic_route.
+      # Port 80 is kept in sync via a different mechanism — see notes on
+      # the API Gateway integration switching to HTTPS:443 in api-gateway
+      # module; or via the manual fixup pattern documented in the runbook.
       prod_traffic_route {
-        listener_arns = [
-          var.https_listener_arn,
-          var.http_listener_arn,
-        ]
+        listener_arns = [var.https_listener_arn]
       }
 
       test_traffic_route {
