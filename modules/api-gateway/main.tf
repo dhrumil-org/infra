@@ -76,8 +76,16 @@ resource "aws_api_gateway_integration" "root" {
 
   timeout_milliseconds = var.integration_timeout_ms
 
+  # Forward the original public Host header so the app generates redirects
+  # using api.vocuone.ai instead of the raw ALB hostname. Also set
+  # X-Forwarded-* so Spring can reconstruct absolute URLs correctly when
+  # forward-headers-strategy is enabled.
   request_parameters = {
-    "integration.request.header.X-Gateway-Secret" = "'${var.gateway_secret}'"
+    "integration.request.header.Host"              = "'${var.api_domain}'"
+    "integration.request.header.X-Forwarded-Host"  = "'${var.api_domain}'"
+    "integration.request.header.X-Forwarded-Proto" = "'https'"
+    "integration.request.header.X-Forwarded-Port"  = "'443'"
+    "integration.request.header.X-Gateway-Secret"  = "'${var.gateway_secret}'"
   }
 }
 
@@ -113,8 +121,12 @@ resource "aws_api_gateway_integration" "proxy" {
   timeout_milliseconds = var.integration_timeout_ms
 
   request_parameters = {
-    "integration.request.path.proxy"              = "method.request.path.proxy"
-    "integration.request.header.X-Gateway-Secret" = "'${var.gateway_secret}'"
+    "integration.request.path.proxy"               = "method.request.path.proxy"
+    "integration.request.header.Host"              = "'${var.api_domain}'"
+    "integration.request.header.X-Forwarded-Host"  = "'${var.api_domain}'"
+    "integration.request.header.X-Forwarded-Proto" = "'https'"
+    "integration.request.header.X-Forwarded-Port"  = "'443'"
+    "integration.request.header.X-Gateway-Secret"  = "'${var.gateway_secret}'"
   }
 }
 
@@ -134,6 +146,10 @@ resource "aws_api_gateway_deployment" "this" {
       aws_api_gateway_integration.proxy.uri,
       aws_api_gateway_integration.root.timeout_milliseconds,
       aws_api_gateway_integration.proxy.timeout_milliseconds,
+      # Header overrides (Host, X-Forwarded-*) — included so changes to
+      # request_parameters trigger a stage redeploy.
+      keys(aws_api_gateway_integration.root.request_parameters),
+      keys(aws_api_gateway_integration.proxy.request_parameters),
     ]))
   }
 
