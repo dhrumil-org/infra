@@ -30,31 +30,38 @@ codedeploy = boto3.client("codedeploy")
 
 
 def _green_target_group_arn(deployment_id: str) -> str:
-    """Resolve which target group is the replacement (green) by asking CodeDeploy."""
+    """Resolve which target group is the replacement (green).
+
+    BeforeAllowTraffic fires AFTER green tasks are healthy in their target
+    group but BEFORE CodeDeploy swaps the prod listener. So at this moment:
+      - prod listener (HTTPS:443) still points at the OLD (blue) target group
+      - the OTHER target group in the pair is the replacement (green)
+
+    CodeDeploy's GetDeployment API returns both target group NAMES (not ARNs).
+    Match by membership in the current ARN string (the substring `/<name>/`
+    appears between the path prefix and the random suffix). Then resolve the
+    OTHER name to a full ARN.
+    """
     info = codedeploy.get_deployment(deploymentId=deployment_id)["deploymentInfo"]
     pair = info["loadBalancerInfo"]["targetGroupPairInfoList"][0]
-    # CodeDeploy reports both target groups + which one currently serves prod
-    target_groups = pair["targetGroups"]
-    prod_tg_name = pair["prodTrafficRoute"].get("listenerArns", [None])[0]
-    # Easier path: the "replacement" task set's target group is the one NOT
-    # currently serving prod. CodeDeploy exposes targetGroups as [{name: ...}, ...]
-    # but doesn't directly mark which is replacement. So instead, read the
-    # current default action of the prod listener — that's the OLD/blue.
-    # The OTHER one is green.
-    prod_listener_arn = os.environ["PROD_LISTENER_ARN"]
-    cur = elbv2.describe_listeners(ListenerArns=[prod_listener_arn])
-    cur_tg = cur["Listeners"][0]["DefaultActions"][0]["TargetGroupArn"]
+    target_groups = pair["targetGroups"]  # [{"name": "..-blue"}, {"name": "..-green"}]
 
-    other_names = [tg["name"] for tg in target_groups if cur_tg.endswith(tg["name"])]
-    # The one whose name is in cur_tg is the "current" (blue). Swap to the other.
+    prod_listener_arn = os.environ["PROD_LISTENER_ARN"]
+    cur_tg_arn = elbv2.describe_listeners(ListenerArns=[prod_listener_arn])["Listeners"][0]["DefaultActions"][0]["TargetGroupArn"]
+
+    # ARN looks like .../targetgroup/<name>/<random-suffix> — check name as a substring.
     for tg in target_groups:
-        if not cur_tg.endswith(tg["name"]):
-            # Resolve full ARN from name
-            described = elbv2.describe_target_groups(Names=[tg["name"]])["TargetGroups"][0]
+        name = tg["name"]
+        if f"/{name}/" not in cur_tg_arn:
+            # This is the replacement target group.
+            described = elbv2.describe_target_groups(Names=[name])["TargetGroups"][0]
             return described["TargetGroupArn"]
 
-    # Fallback: if for some reason both names appear in cur_tg, just stick with current
-    return cur_tg
+    # Defensive fallback: shouldn't happen — CodeDeploy always returns 2 distinct TGs.
+    raise RuntimeError(
+        f"Could not identify replacement target group; current={cur_tg_arn}, "
+        f"target_groups={[tg['name'] for tg in target_groups]}"
+    )
 
 
 def lambda_handler(event, context):
