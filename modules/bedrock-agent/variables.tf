@@ -37,8 +37,7 @@ variable "agent_description" {
 variable "foundation_model" {
   description = "Bedrock foundation model ID for the agent"
   type        = string
-  # Claude Sonnet — cross-region inference (matches dev screenshot)
-  default = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+  default = "us.anthropic.claude-sonnet-4-6"
 }
 
 variable "instruction" {

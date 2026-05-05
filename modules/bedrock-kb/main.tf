@@ -245,6 +245,16 @@ data "aws_iam_policy_document" "bedrock_kb_policy" {
     }
   }
 
+  # Multimodal embedding/parsing models (Nova) often route through cross-region
+  # inference profiles internally; without this Bedrock returns 429/AccessDenied
+  # during the pre-flight model check.
+  statement {
+    sid       = "AllowInferenceProfileInvoke"
+    effect    = "Allow"
+    actions   = ["bedrock:InvokeModel"]
+    resources = ["arn:aws:bedrock:${var.aws_region}:${var.aws_account_id}:inference-profile/*"]
+  }
+
   statement {
     sid    = "AllowS3DataSourceRead"
     effect = "Allow"
@@ -327,6 +337,15 @@ resource "aws_s3vectors_index" "kb" {
   data_type       = "float32"
   dimension       = var.vector_dimensions  # 3072 for amazon.nova-2-multimodal-embeddings-v1:0
   distance_metric = "cosine"
+
+  # Mark Bedrock's auto-attached chunk text + source metadata as non-filterable
+  # so they don't count toward the 2048-byte filterable-metadata cap.
+  metadata_configuration {
+    non_filterable_metadata_keys = [
+      "AMAZON_BEDROCK_METADATA",
+      "AMAZON_BEDROCK_TEXT",
+    ]
+  }
 }
 
 ################################################################################
@@ -417,10 +436,13 @@ resource "aws_bedrockagent_data_source" "secondary" {
   knowledge_base_id    = aws_bedrockagent_knowledge_base.this.id
   data_deletion_policy = "RETAIN"
 
+  # Points at the primary kb-data bucket (matches old-account design):
+  # one bucket, two data sources — primary does fast text extraction,
+  # secondary re-parses image/scanned PDFs with the multimodal model.
   data_source_configuration {
     type = "S3"
     s3_configuration {
-      bucket_arn         = local.secondary_bucket_arn
+      bucket_arn         = local.primary_bucket_arn
       inclusion_prefixes = var.secondary_bucket_prefix != "" ? [var.secondary_bucket_prefix] : null
     }
   }
@@ -432,7 +454,7 @@ resource "aws_bedrockagent_data_source" "secondary" {
       semantic_chunking_configuration {
         breakpoint_percentile_threshold = 95
         buffer_size                     = 0
-        max_token                       = 300
+        max_token                       = 3072
       }
     }
 
@@ -440,7 +462,12 @@ resource "aws_bedrockagent_data_source" "secondary" {
       parsing_strategy = "BEDROCK_FOUNDATION_MODEL"
 
       bedrock_foundation_model_configuration {
-        model_arn = var.parsing_model_arn
+        model_arn         = var.parsing_model_arn
+        parsing_modality  = "MULTIMODAL"
+
+        parsing_prompt {
+          parsing_prompt_string = "Extract all readable text from the document. Preserve section headings, tables, and key-value fields. Return plain text only."
+        }
       }
     }
   }

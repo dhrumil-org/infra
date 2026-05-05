@@ -7,6 +7,7 @@ variable "cloudfront_distribution_arn" {
 }
 
 variable "kms_key_arn" {
-  description = "KMS key ARN for S3 server-side encryption"
+  description = "KMS key ARN for S3 server-side encryption. Optional — callers may omit."
   type        = string
+  default     = ""
 }

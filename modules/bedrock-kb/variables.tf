@@ -168,10 +168,10 @@ variable "secondary_bucket_prefix" {
 }
 
 variable "parsing_model_arn" {
-  description = "Bedrock foundation model ARN used for document parsing (secondary data source)"
+  description = "Bedrock foundation model ARN used for document parsing (secondary data source). Must be a vision-capable model — secondary DS runs in MULTIMODAL parsing mode."
   type        = string
-  # Claude 3 Haiku — fast and cheap for parsing; swap for Sonnet for richer extraction
-  default = "arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-haiku-20240307-v1:0"
+  # Nova Pro — multimodal vision parser; required to extract text from scanned/image PDFs.
+  default = "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0"
 }
 
 ################################################################################
