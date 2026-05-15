@@ -105,6 +105,14 @@ resource "aws_iam_role_policy" "task" {
           Resource = "*"
         },
         {
+          Sid    = "ComprehendMedical"
+          Effect = "Allow"
+          Action = [
+            "comprehendmedical:InferICD10CM",
+          ]
+          Resource = "*"
+        },
+        {
           Sid    = "S3TranscribeAccess"
           Effect = "Allow"
           Action = [

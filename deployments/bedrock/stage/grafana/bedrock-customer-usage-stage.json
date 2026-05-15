@@ -1,0 +1,343 @@
+{
+  "title": "Bedrock \u2014 Customer & Feature Usage \u2014 stage",
+  "description": "Per-customer / per-feature token usage and cost. Sourced from the Bedrock invocation log (Converse calls) and ai.call structured log lines (KB Retrieve, Comprehend Medical, PhysioAssistant agent).",
+  "tags": [
+    "bedrock",
+    "customer",
+    "stage",
+    "billing",
+    "ai"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "5m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Top customers by Bedrock token usage",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 10,
+      "type": "table",
+      "title": "Top 20 companies \u2014 Bedrock tokens (selected range)",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/aws/bedrock/vocuone-invocations"
+          ],
+          "region": "us-east-1",
+          "expression": "filter requestMetadata.env = \"stage\" and ispresent(requestMetadata.company_uid) | stats sum(input.inputTokenCount) as input_tokens, sum(output.outputTokenCount) as output_tokens, count() as calls by requestMetadata.company_uid | sort calls desc | limit 20"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "row",
+      "title": "Bedrock tokens by feature",
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 20,
+      "type": "table",
+      "title": "Tokens by feature (Bedrock Converse)",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/aws/bedrock/vocuone-invocations"
+          ],
+          "region": "us-east-1",
+          "expression": "filter requestMetadata.env = \"stage\" and ispresent(requestMetadata.feature) | stats sum(input.inputTokenCount) as input_tokens, sum(output.outputTokenCount) as output_tokens, count() as calls by requestMetadata.feature, modelId | sort calls desc"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Tokens / 5min by feature (Bedrock)",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/aws/bedrock/vocuone-invocations"
+          ],
+          "region": "us-east-1",
+          "expression": "filter requestMetadata.env = \"stage\" and ispresent(requestMetadata.feature) | stats sum(input.inputTokenCount + output.outputTokenCount) as total_tokens by bin(5m), requestMetadata.feature"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "row",
+      "title": "Per-customer detail \u2014 Bedrock invocation log",
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 30,
+      "type": "table",
+      "title": "Company \u00d7 user \u00d7 feature \u00d7 model \u2014 token breakdown",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 12
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/aws/bedrock/vocuone-invocations"
+          ],
+          "region": "us-east-1",
+          "expression": "filter requestMetadata.env = \"stage\" and ispresent(requestMetadata.company_uid) and ispresent(requestMetadata.feature) | stats sum(input.inputTokenCount) as input_tokens, sum(output.outputTokenCount) as output_tokens, count() as calls by requestMetadata.company_uid, requestMetadata.user_id, requestMetadata.feature, modelId | sort calls desc | limit 200"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "row",
+      "title": "Non-Bedrock surfaces (KB Retrieve, Comprehend, Agent) \u2014 ai.call",
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 40,
+      "type": "table",
+      "title": "ai.call by feature (KB Retrieve, Comprehend, Agent)",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/ecs/vocuone-stage-app"
+          ],
+          "region": "us-east-1",
+          "expression": "filter @message like /\"marker\":\"ai\\.call\"/ | parse @message /\"feature\":\"(?<feature>[^\"]+)\"/ | parse @message /\"operation\":\"(?<operation>[^\"]+)\"/ | parse @message /\"company_uid\":\"(?<company_uid>[^\"]+)\"/ | parse @message /\"user_id\":\"(?<user_id>[^\"]+)\"/ | parse @message /\"status\":\"(?<status>[^\"]+)\"/ | parse @message /\"latency_ms\":(?<latency_ms>\\d+)/ | stats count() as calls, avg(latency_ms) as avg_ms, pct(latency_ms, 95) as p95_ms by feature, status | sort calls desc"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "type": "table",
+      "title": "ai.call top users (KB / Comprehend / Agent)",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/ecs/vocuone-stage-app"
+          ],
+          "region": "us-east-1",
+          "expression": "filter @message like /\"marker\":\"ai\\.call\"/ | parse @message /\"feature\":\"(?<feature>[^\"]+)\"/ | parse @message /\"operation\":\"(?<operation>[^\"]+)\"/ | parse @message /\"company_uid\":\"(?<company_uid>[^\"]+)\"/ | parse @message /\"user_id\":\"(?<user_id>[^\"]+)\"/ | parse @message /\"status\":\"(?<status>[^\"]+)\"/ | parse @message /\"latency_ms\":(?<latency_ms>\\d+)/ | filter ispresent(company_uid) | stats count() as calls, avg(latency_ms) as avg_ms by company_uid, user_id, feature | sort calls desc | limit 100"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "PhysioAssistant chat \u2014 agent activity",
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 50,
+      "type": "table",
+      "title": "Chat turns \u2014 outer InvokeAgent (one row per chat message)",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/ecs/vocuone-stage-app"
+          ],
+          "region": "us-east-1",
+          "expression": "filter @message like /\"marker\":\"ai\\.call\"/ | parse @message /\"feature\":\"(?<feature>[^\"]+)\"/ | parse @message /\"operation\":\"(?<operation>[^\"]+)\"/ | parse @message /\"company_uid\":\"(?<company_uid>[^\"]+)\"/ | parse @message /\"user_id\":\"(?<user_id>[^\"]+)\"/ | parse @message /\"status\":\"(?<status>[^\"]+)\"/ | parse @message /\"latency_ms\":(?<latency_ms>\\d+)/ | parse @message /\"session_id\":\"(?<session_id>[^\"]+)\"/ | parse @message /\"trace_events\":(?<trace_events>\\d+)/ | parse @message /\"response_chars\":(?<response_chars>\\d+)/ | filter feature = \"physio_chat\" and operation = \"InvokeAgent\" | stats count() as chats, avg(latency_ms) as avg_ms, pct(latency_ms, 95) as p95_ms, sum(trace_events) as total_trace_events, avg(response_chars) as avg_chars by company_uid, user_id | sort chats desc"
+        }
+      ]
+    }
+  ],
+  "__inputs": [
+    {
+      "name": "DS_CLOUDWATCH",
+      "label": "CloudWatch",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "cloudwatch",
+      "pluginName": "CloudWatch"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "cloudwatch",
+      "name": "CloudWatch",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "gauge",
+      "name": "Gauge",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    }
+  ]
+}

@@ -27,7 +27,11 @@ locals {
   # Build full ECR image URI dynamically from account ID + region
   container_image = "${var.aws_account_id}.dkr.ecr.${var.aws_region}.amazonaws.com/${var.container_image}"
 
-  app_environment_variables = [
+  # Base app env vars. GenAI Observability env vars (JAVA_TOOL_OPTIONS, OTEL_*)
+  # are merged in via concat() below — see local.app_environment_variables.
+  # To disable GenAI Observability, change the assignment below to just
+  # `app_environment_variables = local.app_environment_variables_base`.
+  app_environment_variables_base = [
     {
       name  = "SPRING_PROFILES_ACTIVE"
       value = var.spring_profile
@@ -113,6 +117,15 @@ locals {
       value = data.terraform_remote_state.bedrock_stage.outputs.agent_alias_id
     },
   ]
+
+  # Final env-var list injected into the ECS task definition.
+  # GenAI Observability NOT activated on prod yet — pending verification on stage.
+  # To activate, restore the concat() below:
+  #   app_environment_variables = concat(
+  #     local.app_environment_variables_base,
+  #     local.genai_observability_env,
+  #   )
+  app_environment_variables = local.app_environment_variables_base
 }
 
 ################################################################################
@@ -542,8 +555,8 @@ module "ecs_service" {
   scale_in_cooldown        = 300
   scale_out_cooldown       = 120
 
-  kms_key_arns  = [module.kms.key_arns["logs"], module.kms.key_arns["ecr"], module.kms.key_arns["secrets"]]
-  secrets_arns  = var.task_secret_arns
+  kms_key_arns = [module.kms.key_arns["logs"], module.kms.key_arns["ecr"], module.kms.key_arns["secrets"]]
+  secrets_arns = var.task_secret_arns
 
   # Secrets the app reads at runtime via AWS SDK (not injected as env vars)
   task_secret_arns = var.task_secret_arns
@@ -623,12 +636,12 @@ module "codedeploy" {
   env     = var.env
   project = var.project
 
-  service_name           = "app"
-  ecs_cluster_name       = module.ecs_cluster.cluster_name
-  ecs_service_name       = module.ecs_service.service_name
-  https_listener_arn     = module.alb.https_listener_arn
-  test_listener_arn      = module.alb.test_listener_arn
-  blue_target_group_name = module.alb.blue_target_group_name
+  service_name            = "app"
+  ecs_cluster_name        = module.ecs_cluster.cluster_name
+  ecs_service_name        = module.ecs_service.service_name
+  https_listener_arn      = module.alb.https_listener_arn
+  test_listener_arn       = module.alb.test_listener_arn
+  blue_target_group_name  = module.alb.blue_target_group_name
   green_target_group_name = module.alb.green_target_group_name
 }
 
@@ -714,7 +727,7 @@ module "api_gateway" {
   acm_certificate_arn = var.acm_certificate_arn
   kms_key_arn         = module.kms.key_arns["logs"]
 
-  gateway_secret       = random_password.gateway_secret.result
+  gateway_secret = random_password.gateway_secret.result
 
   # Throttling — adjust based on expected traffic
   throttling_burst_limit = 500

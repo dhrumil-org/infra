@@ -44,7 +44,7 @@ spring_profile = "stage"
 
 # App environment variables
 app_email_redirect_url   = "https://app.vocuone.ai"
-app_cors_allowed_origins = "https://app.vocanote.ai,https://vocanote.ai,https://stage-app.vocuone.ai"
+app_cors_allowed_origins = "https://app.vocanote.ai,https://vocanote.ai,https://stage-app.vocuone.ai,https://stage-api.vocuone.ai"
 
 # Secrets the app reads at runtime via AWS SDK
 task_secret_arns = [

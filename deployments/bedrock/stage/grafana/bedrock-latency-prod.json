@@ -1,0 +1,436 @@
+{
+  "title": "Bedrock \u2014 Latency \u2014 prod",
+  "description": "Latency p50/p95/p99 by Bedrock model (CloudWatch metrics) and by app feature (Logs Insights over Bedrock invocation log + ai.call lines).",
+  "tags": [
+    "latency",
+    "bedrock",
+    "prod",
+    "ai"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "1m",
+  "time": {
+    "from": "now-3h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Bedrock \u2014 InvocationLatency by model (CloudWatch metric)",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Haiku / Sonnet \u2014 InvocationLatency p50 / p95 / p99",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p50",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+          },
+          "region": "us-east-1",
+          "alias": "Haiku p50",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        },
+        {
+          "refId": "B",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p95",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+          },
+          "region": "us-east-1",
+          "alias": "Haiku p95",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        },
+        {
+          "refId": "C",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p99",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+          },
+          "region": "us-east-1",
+          "alias": "Haiku p99",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        },
+        {
+          "refId": "D",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p50",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "us.anthropic.claude-sonnet-4-6"
+          },
+          "region": "us-east-1",
+          "alias": "Sonnet p50",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        },
+        {
+          "refId": "E",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p95",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "us.anthropic.claude-sonnet-4-6"
+          },
+          "region": "us-east-1",
+          "alias": "Sonnet p95",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        },
+        {
+          "refId": "F",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p99",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "us.anthropic.claude-sonnet-4-6"
+          },
+          "region": "us-east-1",
+          "alias": "Sonnet p99",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Nova Pro / Nova-2 embeddings \u2014 latency",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p50",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0"
+          },
+          "region": "us-east-1",
+          "alias": "Nova Pro p50",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        },
+        {
+          "refId": "B",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p95",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-pro-v1:0"
+          },
+          "region": "us-east-1",
+          "alias": "Nova Pro p95",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        },
+        {
+          "refId": "C",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p50",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-multimodal-embeddings-v1:0"
+          },
+          "region": "us-east-1",
+          "alias": "Nova-2 emb p50",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        },
+        {
+          "refId": "D",
+          "namespace": "AWS/Bedrock",
+          "metricName": "InvocationLatency",
+          "statistic": "p95",
+          "period": "60",
+          "dimensions": {
+            "ModelId": "arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-multimodal-embeddings-v1:0"
+          },
+          "region": "us-east-1",
+          "alias": "Nova-2 emb p95",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "matchExact": true,
+          "id": "",
+          "expression": ""
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "row",
+      "title": "Per-feature latency (from Bedrock invocation log)",
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 20,
+      "type": "table",
+      "title": "Bedrock Converse \u2014 calls by feature \u00d7 model (last range)",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/aws/bedrock/vocuone-invocations"
+          ],
+          "region": "us-east-1",
+          "expression": "filter requestMetadata.env = \"prod\" and ispresent(requestMetadata.feature) | stats count() as calls by requestMetadata.feature, modelId | sort calls desc"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "row",
+      "title": "ai.call latency (KB Retrieve, Comprehend, PhysioAssistant)",
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 30,
+      "type": "table",
+      "title": "ai.call latency by feature \u2014 p50 / p95 / p99",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/ecs/vocuone-prod-app"
+          ],
+          "region": "us-east-1",
+          "expression": "filter @message like /\"marker\":\"ai\\.call\"/ | parse @message /\"feature\":\"(?<feature>[^\"]+)\"/ | parse @message /\"operation\":\"(?<operation>[^\"]+)\"/ | parse @message /\"status\":\"(?<status>[^\"]+)\"/ | parse @message /\"latency_ms\":(?<latency_ms>\\d+)/ | stats count() as calls, avg(latency_ms) as avg_ms, pct(latency_ms, 50) as p50, pct(latency_ms, 95) as p95, pct(latency_ms, 99) as p99 by feature, operation, status | sort calls desc"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "ai.call p95 latency over time, by feature",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${DS_CLOUDWATCH}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 38,
+        "w": 24,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryMode": "Logs",
+          "logGroupNames": [
+            "/ecs/vocuone-prod-app"
+          ],
+          "region": "us-east-1",
+          "expression": "filter @message like /\"marker\":\"ai\\.call\"/ | parse @message /\"feature\":\"(?<feature>[^\"]+)\"/ | parse @message /\"operation\":\"(?<operation>[^\"]+)\"/ | parse @message /\"status\":\"(?<status>[^\"]+)\"/ | parse @message /\"latency_ms\":(?<latency_ms>\\d+)/ | stats pct(latency_ms, 95) as p95 by bin(5m), feature"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "row",
+      "title": "Comprehend Medical latency (CloudWatch metric)",
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "id": 99,
+      "type": "text",
+      "title": "Note",
+      "gridPos": {
+        "x": 0,
+        "y": 48,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Comprehend Medical does not emit CloudWatch metrics** in this AWS account/region (`AWS/ComprehendMedical` namespace is empty). Use the **ai.call latency by feature** table above and filter `feature = comprehend_icd` for per-call latency, status, and chunk size."
+      }
+    }
+  ],
+  "__inputs": [
+    {
+      "name": "DS_CLOUDWATCH",
+      "label": "CloudWatch",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "cloudwatch",
+      "pluginName": "CloudWatch"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "10.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "cloudwatch",
+      "name": "CloudWatch",
+      "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "gauge",
+      "name": "Gauge",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    }
+  ]
+}

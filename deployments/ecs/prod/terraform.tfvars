@@ -53,7 +53,7 @@ spring_profile = "prod"
 
 # App environment variables
 app_email_redirect_url   = "https://app.vocuone.ai"
-app_cors_allowed_origins = "https://app.vocuone.ai,https://vocuone.ai,https://www.vocuone.ai,chrome-extension://*"
+app_cors_allowed_origins = "https://app.vocuone.ai,https://vocuone.ai,https://www.vocuone.ai,https://api.vocuone.ai,chrome-extension://*"
 
 # Secrets the app reads at runtime via AWS SDK
 task_secret_arns = [

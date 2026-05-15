@@ -488,6 +488,25 @@ data "aws_iam_policy_document" "kb_access" {
     resources = [aws_bedrockagent_knowledge_base.this.arn]
   }
 
+  # The app's BedrockDatasourceService manages KB data sources and triggers
+  # ingestion jobs after document uploads (controllers/DocumentController,
+  # ConversationsController). Scoped to this KB only — sub-resources (data
+  # sources, ingestion jobs) are owned by the KB ARN.
+  statement {
+    sid    = "AllowKBDataSourceManagement"
+    effect = "Allow"
+    actions = [
+      "bedrock:ListDataSources",
+      "bedrock:GetDataSource",
+      "bedrock:CreateDataSource",
+      "bedrock:UpdateDataSource",
+      "bedrock:StartIngestionJob",
+      "bedrock:GetIngestionJob",
+      "bedrock:ListIngestionJobs",
+    ]
+    resources = [aws_bedrockagent_knowledge_base.this.arn]
+  }
+
   statement {
     sid    = "AllowResponseModelInvoke"
     effect = "Allow"
