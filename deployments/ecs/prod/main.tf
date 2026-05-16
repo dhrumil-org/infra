@@ -761,6 +761,76 @@ module "waf" {
 }
 
 ################################################################################
+# ALB header gate — block direct ALB hits that bypass API Gateway
+#
+# The ALB is internet-facing for unavoidable architectural reasons (REST API v1
+# can't directly VPC-Link to an ALB). To prevent abuse via direct ALB DNS,
+# this second WAF Web ACL is attached to the ALB itself with:
+#   - default action: BLOCK
+#   - allow rule:     requests carrying X-Gateway-Secret header == gateway_secret
+#
+# Only requests routed through API Gateway (which injects the header from
+# random_password.gateway_secret above) can pass. Anything else gets a 403
+# at the WAF layer, never reaching the ECS app.
+################################################################################
+
+resource "aws_wafv2_web_acl" "alb_gate" {
+  name        = "${var.project}-${var.env}-alb-gate"
+  description = "Block direct ALB hits - require X-Gateway-Secret header from API Gateway"
+  scope       = "REGIONAL"
+
+  default_action {
+    block {}
+  }
+
+  rule {
+    name     = "AllowApiGatewayTraffic"
+    priority = 1
+
+    action {
+      allow {}
+    }
+
+    statement {
+      byte_match_statement {
+        positional_constraint = "EXACTLY"
+        search_string         = random_password.gateway_secret.result
+
+        field_to_match {
+          single_header {
+            name = "x-gateway-secret"
+          }
+        }
+
+        text_transformation {
+          priority = 0
+          type     = "NONE"
+        }
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${var.project}${var.env}albgateallow"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${var.project}${var.env}albgate"
+    sampled_requests_enabled   = true
+  }
+
+  tags = { Name = "${var.project}-${var.env}-alb-gate" }
+}
+
+resource "aws_wafv2_web_acl_association" "alb_gate" {
+  resource_arn = module.alb.alb_arn
+  web_acl_arn  = aws_wafv2_web_acl.alb_gate.arn
+}
+
+################################################################################
 # AWS Backup — S3 + RDS daily/monthly snapshots (HIPAA)
 ################################################################################
 
