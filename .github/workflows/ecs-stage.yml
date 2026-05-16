@@ -17,16 +17,12 @@ on:
       - "modules/rds/**"
       - "modules/bastion/**"
       - "modules/cloudtrail/**"
-      - "modules/api-gateway/**"
-      - "modules/synthetics/**"
-      - "modules/backup/**"
   pull_request:
     branches: [stage]
     paths:
       - "deployments/ecs/stage/**"
       - "modules/**"
   workflow_dispatch:
-concurrency:  group: ecs-stage  cancel-in-progress: false
 
 jobs:
   terraform:
@@ -34,7 +30,6 @@ jobs:
     with:
       working_directory: deployments/ecs/stage
       environment: stage
-      codepipeline_name: vocuone-stage-deploy-pipeline
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.TF_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.TF_AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.STAGE_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.STAGE_AWS_SECRET_ACCESS_KEY }}

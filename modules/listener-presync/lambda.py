@@ -1,30 +1,3 @@
-"""
-Listener Post-Sync Lambda
-=========================
-
-Invoked by CodeDeploy as an `AfterAllowTraffic` lifecycle hook during ECS
-blue/green deployments. Fires ONLY AFTER CodeDeploy has successfully and
-atomically swapped the production listener (HTTPS:443) to the new task
-set's target group.
-
-Job: copy port 443's now-current target group ARN onto the secondary
-listener (HTTP:80) so the two listeners stay aligned.
-
-Why AfterAllowTraffic and not BeforeAllowTraffic:
-  - If we ran BEFORE the swap and CodeDeploy then aborted (bad image,
-    alarm fires, health check fails), port 80 would be stranded on the
-    failed target group while CodeDeploy successfully reverted port 443.
-    API Gateway uses port 80, so users would see 503s even though
-    CodeDeploy "rolled back."
-  - AfterAllowTraffic only fires on a successful swap. On any failure
-    path the Lambda never runs and both listeners stay aligned on the
-    original (blue) target group — production stays up.
-
-Environment variables (set by terraform):
-  PROD_LISTENER_ARN      - the listener CodeDeploy just swapped (HTTPS:443)
-  SECONDARY_LISTENER_ARN - the listener that needs to follow it (HTTP:80)
-"""
-
 import logging
 import os
 

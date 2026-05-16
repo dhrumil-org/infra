@@ -23,7 +23,6 @@ on:
       - "deployments/ecs/prod/**"
       - "modules/**"
   workflow_dispatch:
-concurrency:  group: ecs-prod  cancel-in-progress: false
 
 jobs:
   terraform:
@@ -32,5 +31,5 @@ jobs:
       working_directory: deployments/ecs/prod
       environment: prod
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.TF_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.TF_AWS_SECRET_ACCESS_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
