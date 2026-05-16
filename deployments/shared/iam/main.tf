@@ -219,6 +219,19 @@ resource "aws_iam_policy" "cicd" {
           "iam:ListPolicies",
           "iam:ListInstanceProfiles",
           "iam:ListInstanceProfilesForRole",
+          # OIDC provider — needed so terraform-via-OIDC can refresh
+          # aws_iam_openid_connect_provider.github (the resource that
+          # underpins the very role being assumed for this run).
+          "iam:CreateOpenIDConnectProvider",
+          "iam:DeleteOpenIDConnectProvider",
+          "iam:GetOpenIDConnectProvider",
+          "iam:ListOpenIDConnectProviders",
+          "iam:UpdateOpenIDConnectProviderThumbprint",
+          "iam:AddClientIDToOpenIDConnectProvider",
+          "iam:RemoveClientIDFromOpenIDConnectProvider",
+          "iam:TagOpenIDConnectProvider",
+          "iam:UntagOpenIDConnectProvider",
+          "iam:ListOpenIDConnectProviderTags",
         ]
         Resource = "*"
       },
