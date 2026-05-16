@@ -2,7 +2,7 @@ name: "ECS: Prod"
 
 on:
   push:
-    branches: [main]
+    branches: [prod]
     paths:
       - "deployments/ecs/prod/**"
       - "modules/vpc/**"
@@ -18,7 +18,7 @@ on:
       - "modules/bastion/**"
       - "modules/cloudtrail/**"
   pull_request:
-    branches: [main]
+    branches: [prod]
     paths:
       - "deployments/ecs/prod/**"
       - "modules/**"

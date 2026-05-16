@@ -2,13 +2,13 @@ name: "Bedrock: Prod"
 
 on:
   push:
-    branches: [main]
+    branches: [prod]
     paths:
       - "deployments/bedrock/prod/**"
       - "modules/bedrock-kb/**"
       - "modules/bedrock-agent/**"
   pull_request:
-    branches: [main]
+    branches: [prod]
     paths:
       - "deployments/bedrock/prod/**"
       - "modules/bedrock-kb/**"

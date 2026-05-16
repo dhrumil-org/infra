@@ -2,14 +2,14 @@ name: "Frontend: Prod"
 
 on:
   push:
-    branches: [main]
+    branches: [prod]
     paths:
       - "deployments/frontend/prod/**"
       - "modules/s3-frontend/**"
       - "modules/cloudfront/**"
       - "modules/secrets-manager/**"
   pull_request:
-    branches: [main]
+    branches: [prod]
     paths:
       - "deployments/frontend/prod/**"
       - "modules/**"

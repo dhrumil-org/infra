@@ -19,6 +19,7 @@ locals {
     infra    = "vocanote-ai/vocanote-infra"
     backend  = "vocanote-ai/vocanote-be"
     frontend = "vocanote-ai/vocanote-fe"
+    canary = "vocanote-ai/vocanote-canary"
   }
 }
 
@@ -59,12 +60,14 @@ resource "aws_iam_role" "github_actions_stage" {
             "repo:${local.github_oidc_repos.infra}:pull_request",
             "repo:${local.github_oidc_repos.backend}:ref:refs/heads/stage",
             "repo:${local.github_oidc_repos.frontend}:ref:refs/heads/stage",
+            "repo:${local.github_oidc_repos.canary}:ref:refs/heads/stage",
             # environment: patterns — apply job uses `environment: stage` which
             # changes the OIDC sub format. Without these the assume role fails
             # at the gated step even though plan worked.
             "repo:${local.github_oidc_repos.infra}:environment:stage",
             "repo:${local.github_oidc_repos.backend}:environment:stage",
             "repo:${local.github_oidc_repos.frontend}:environment:stage",
+            "repo:${local.github_oidc_repos.canary}:environment:stage",
           ]
         }
       }
@@ -106,10 +109,12 @@ resource "aws_iam_role" "github_actions_prod" {
             "repo:${local.github_oidc_repos.infra}:ref:refs/heads/prod",
             "repo:${local.github_oidc_repos.backend}:ref:refs/heads/prod",
             "repo:${local.github_oidc_repos.frontend}:ref:refs/heads/prod",
+            "repo:${local.github_oidc_repos.canary}:ref:refs/heads/prod",
             # environment: patterns — apply job uses `environment: prod`
             "repo:${local.github_oidc_repos.infra}:environment:prod",
             "repo:${local.github_oidc_repos.backend}:environment:prod",
             "repo:${local.github_oidc_repos.frontend}:environment:prod",
+            "repo:${local.github_oidc_repos.canary}:environment:prod",
           ]
         }
       }
