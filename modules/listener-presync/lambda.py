@@ -1,19 +1,27 @@
 """
-Listener Pre-Sync Lambda
-========================
+Listener Post-Sync Lambda
+=========================
 
-Invoked by CodeDeploy as a `BeforeAllowTraffic` lifecycle hook during ECS
-blue/green deployments. Fires AFTER the replacement (green) task set is
-healthy in its target group, but BEFORE CodeDeploy atomically swaps the
-production listener (HTTPS:443) to it.
+Invoked by CodeDeploy as an `AfterAllowTraffic` lifecycle hook during ECS
+blue/green deployments. Fires ONLY AFTER CodeDeploy has successfully and
+atomically swapped the production listener (HTTPS:443) to the new task
+set's target group.
 
-Job: copy the green target group ARN onto the secondary listener
-(HTTP:80), so when CodeDeploy then swaps 443 to green, both listeners
-are already pointing at the same target group. No misalignment window,
-zero downtime.
+Job: copy port 443's now-current target group ARN onto the secondary
+listener (HTTP:80) so the two listeners stay aligned.
+
+Why AfterAllowTraffic and not BeforeAllowTraffic:
+  - If we ran BEFORE the swap and CodeDeploy then aborted (bad image,
+    alarm fires, health check fails), port 80 would be stranded on the
+    failed target group while CodeDeploy successfully reverted port 443.
+    API Gateway uses port 80, so users would see 503s even though
+    CodeDeploy "rolled back."
+  - AfterAllowTraffic only fires on a successful swap. On any failure
+    path the Lambda never runs and both listeners stay aligned on the
+    original (blue) target group — production stays up.
 
 Environment variables (set by terraform):
-  PROD_LISTENER_ARN      - the listener CodeDeploy is about to swap (HTTPS:443)
+  PROD_LISTENER_ARN      - the listener CodeDeploy just swapped (HTTPS:443)
   SECONDARY_LISTENER_ARN - the listener that needs to follow it (HTTP:80)
 """
 
@@ -29,71 +37,53 @@ elbv2 = boto3.client("elbv2")
 codedeploy = boto3.client("codedeploy")
 
 
-def _green_target_group_arn(deployment_id: str) -> str:
-    """Resolve which target group is the replacement (green).
-
-    BeforeAllowTraffic fires AFTER green tasks are healthy in their target
-    group but BEFORE CodeDeploy swaps the prod listener. So at this moment:
-      - prod listener (HTTPS:443) still points at the OLD (blue) target group
-      - the OTHER target group in the pair is the replacement (green)
-
-    CodeDeploy's GetDeployment API returns both target group NAMES (not ARNs).
-    Match by membership in the current ARN string (the substring `/<name>/`
-    appears between the path prefix and the random suffix). Then resolve the
-    OTHER name to a full ARN.
-    """
-    info = codedeploy.get_deployment(deploymentId=deployment_id)["deploymentInfo"]
-    pair = info["loadBalancerInfo"]["targetGroupPairInfoList"][0]
-    target_groups = pair["targetGroups"]  # [{"name": "..-blue"}, {"name": "..-green"}]
-
-    prod_listener_arn = os.environ["PROD_LISTENER_ARN"]
-    cur_tg_arn = elbv2.describe_listeners(ListenerArns=[prod_listener_arn])["Listeners"][0]["DefaultActions"][0]["TargetGroupArn"]
-
-    # ARN looks like .../targetgroup/<name>/<random-suffix> — check name as a substring.
-    for tg in target_groups:
-        name = tg["name"]
-        if f"/{name}/" not in cur_tg_arn:
-            # This is the replacement target group.
-            described = elbv2.describe_target_groups(Names=[name])["TargetGroups"][0]
-            return described["TargetGroupArn"]
-
-    # Defensive fallback: shouldn't happen — CodeDeploy always returns 2 distinct TGs.
-    raise RuntimeError(
-        f"Could not identify replacement target group; current={cur_tg_arn}, "
-        f"target_groups={[tg['name'] for tg in target_groups]}"
-    )
-
-
 def lambda_handler(event, context):
     deployment_id = event["DeploymentId"]
     hook_execution_id = event["LifecycleEventHookExecutionId"]
 
-    logger.info("BeforeAllowTraffic hook for deployment %s", deployment_id)
+    logger.info("AfterAllowTraffic hook for deployment %s", deployment_id)
 
     try:
-        green_tg = _green_target_group_arn(deployment_id)
-        secondary_listener = os.environ["SECONDARY_LISTENER_ARN"]
+        prod_listener_arn = os.environ["PROD_LISTENER_ARN"]
+        secondary_listener_arn = os.environ["SECONDARY_LISTENER_ARN"]
 
-        logger.info("Pre-aligning secondary listener %s -> %s", secondary_listener, green_tg)
+        # Read the production listener's current target group. AfterAllowTraffic
+        # fires after CodeDeploy swapped this, so it now points at the new live
+        # task set's target group — exactly what we want on the secondary.
+        prod_actions = elbv2.describe_listeners(ListenerArns=[prod_listener_arn])["Listeners"][0]["DefaultActions"]
+        forward = next((a for a in prod_actions if a["Type"] == "forward"), None)
+        if forward is None:
+            raise RuntimeError(f"Production listener has no forward action: {prod_actions}")
+        live_tg_arn = forward["TargetGroupArn"]
 
-        elbv2.modify_listener(
-            ListenerArn=secondary_listener,
-            DefaultActions=[{"Type": "forward", "TargetGroupArn": green_tg}],
-        )
+        # Check current secondary state; skip the modify call if already aligned.
+        sec_actions = elbv2.describe_listeners(ListenerArns=[secondary_listener_arn])["Listeners"][0]["DefaultActions"]
+        sec_forward = next((a for a in sec_actions if a["Type"] == "forward"), None)
+        current_tg_on_secondary = sec_forward["TargetGroupArn"] if sec_forward else None
 
-        logger.info("Secondary listener aligned. Reporting Succeeded to CodeDeploy.")
+        if current_tg_on_secondary == live_tg_arn:
+            logger.info("Secondary listener already aligned to %s — no change needed", live_tg_arn)
+        else:
+            logger.info("Aligning secondary listener %s: %s -> %s",
+                        secondary_listener_arn, current_tg_on_secondary, live_tg_arn)
+            elbv2.modify_listener(
+                ListenerArn=secondary_listener_arn,
+                DefaultActions=[{"Type": "forward", "TargetGroupArn": live_tg_arn}],
+            )
 
+        logger.info("Reporting Succeeded to CodeDeploy.")
         codedeploy.put_lifecycle_event_hook_execution_status(
             deploymentId=deployment_id,
             lifecycleEventHookExecutionId=hook_execution_id,
             status="Succeeded",
         )
 
-        return {"status": "ok", "target_group_arn": green_tg}
+        return {"status": "ok", "target_group_arn": live_tg_arn}
 
-    except Exception as exc:
-        logger.exception("Failed to pre-align secondary listener")
-        # Tell CodeDeploy we failed; it will roll back the deployment.
+    except Exception:
+        logger.exception("Failed to align secondary listener")
+        # CodeDeploy will mark the deployment as failed and (since auto_rollback
+        # has DEPLOYMENT_FAILURE listed) revert traffic back to blue.
         codedeploy.put_lifecycle_event_hook_execution_status(
             deploymentId=deployment_id,
             lifecycleEventHookExecutionId=hook_execution_id,
