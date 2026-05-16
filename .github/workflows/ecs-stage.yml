@@ -17,11 +17,6 @@ on:
       - "modules/rds/**"
       - "modules/bastion/**"
       - "modules/cloudtrail/**"
-  pull_request:
-    branches: [stage]
-    paths:
-      - "deployments/ecs/stage/**"
-      - "modules/**"
   workflow_dispatch:
 
 permissions:

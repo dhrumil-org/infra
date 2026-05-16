@@ -7,12 +7,6 @@ on:
       - "deployments/bedrock/prod/**"
       - "modules/bedrock-kb/**"
       - "modules/bedrock-agent/**"
-  pull_request:
-    branches: [prod]
-    paths:
-      - "deployments/bedrock/prod/**"
-      - "modules/bedrock-kb/**"
-      - "modules/bedrock-agent/**"
   workflow_dispatch:
 
 permissions:
