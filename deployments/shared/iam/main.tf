@@ -247,6 +247,61 @@ resource "aws_iam_policy" "cicd" {
         ]
         Resource = "*"
       },
+      ##########################################################################
+      # Below: gaps found while running CI/CD as the OIDC role. Each block
+      # corresponds to a terraform refresh that previously hit AccessDenied.
+      ##########################################################################
+      {
+        Sid    = "WAFv2"
+        Effect = "Allow"
+        Action = ["wafv2:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "ApplicationAutoScaling"
+        Effect = "Allow"
+        Action = ["application-autoscaling:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "Backup"
+        Effect = "Allow"
+        Action = [
+          "backup:*",
+          "backup-storage:*",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "EventBridge"
+        Effect = "Allow"
+        Action = ["events:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "Bedrock"
+        Effect = "Allow"
+        Action = [
+          "bedrock:*",
+          "bedrock-agent:*",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "Inspector"
+        Effect = "Allow"
+        Action = ["inspector2:*"]
+        Resource = "*"
+      },
+      {
+        Sid    = "STS"
+        Effect = "Allow"
+        Action = [
+          "sts:GetCallerIdentity",
+          "sts:TagSession",
+        ]
+        Resource = "*"
+      },
     ]
   })
 }
