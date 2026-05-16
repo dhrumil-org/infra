@@ -16,9 +16,9 @@
 
 locals {
   github_oidc_repos = {
-    infra    = "dhrumil-org/infra"
-    backend  = "dhrumil-org/vocanote-be"
-    frontend = "dhrumil-org/vocanote-fe"
+    infra    = "vocanote-ai/vocanote-infra"
+    backend  = "vocanote-ai/vocanote-be"
+    frontend = "vocanote-ai/vocanote-fe"
   }
 }
 
