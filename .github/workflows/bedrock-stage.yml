@@ -15,6 +15,10 @@ on:
       - "modules/bedrock-agent/**"
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   terraform:
     uses: ./.github/workflows/_terraform-reusable.yml
@@ -22,14 +26,16 @@ jobs:
       working_directory: deployments/bedrock/stage
       environment: stage
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.STAGE_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.STAGE_AWS_SECRET_ACCESS_KEY }}
+      AWS_ROLE_ARN: ${{ secrets.STAGE_TF_AWS_ROLE_ARN }}
 
   publish-agent-version:
     name: Publish Agent Version + Update Alias
     needs: terraform
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
     defaults:
       run:
         working-directory: deployments/bedrock/stage
@@ -37,11 +43,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.STAGE_AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.STAGE_AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.STAGE_TF_AWS_ROLE_ARN }}
+          role-session-name: gha-stage-bedrock-publish
           aws-region: us-east-1
 
       - name: Setup Terraform

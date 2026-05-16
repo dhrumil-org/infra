@@ -15,6 +15,10 @@ on:
       - "modules/**"
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   terraform:
     uses: ./.github/workflows/_terraform-reusable.yml
@@ -22,5 +26,4 @@ jobs:
       working_directory: deployments/admin/prod
       environment: prod
     secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
+      AWS_ROLE_ARN: ${{ secrets.PROD_TF_AWS_ROLE_ARN }}
