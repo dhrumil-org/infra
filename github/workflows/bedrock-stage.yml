@@ -1,0 +1,107 @@
+name: "Bedrock: Stage"
+
+on:
+  push:
+    branches: [stage]
+    paths:
+      - "deployments/bedrock/stage/**"
+      - "modules/bedrock-kb/**"
+      - "modules/bedrock-agent/**"
+  pull_request:
+    branches: [stage]
+    paths:
+      - "deployments/bedrock/stage/**"
+      - "modules/bedrock-kb/**"
+      - "modules/bedrock-agent/**"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    uses: ./.github/workflows/_terraform-reusable.yml
+    with:
+      working_directory: deployments/bedrock/stage
+      environment: stage
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.STAGE_TF_AWS_ROLE_ARN }}
+
+  publish-agent-version:
+    name: Publish Agent Version + Update Alias
+    needs: terraform
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    defaults:
+      run:
+        working-directory: deployments/bedrock/stage
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.STAGE_TF_AWS_ROLE_ARN }}
+          role-session-name: gha-stage-bedrock-publish
+          aws-region: us-east-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.8"
+
+      - name: Terraform Init (to read outputs)
+        run: terraform init
+
+      - name: Publish new agent version and repoint alias to it
+        env:
+          ALIAS_NAME: stage
+          ALIAS_DESCRIPTION: stage alias
+        run: |
+          set -e
+          AGENT_ID=$(terraform output -raw agent_id)
+          ALIAS_ID=$(terraform output -raw agent_alias_id)
+          echo "agent=$AGENT_ID alias=$ALIAS_ID"
+
+          # Calling update-agent-alias without --routing-configuration causes
+          # AWS to publish a new version from current DRAFT and repoint the alias
+          # at it. Description is passed to avoid clearing it.
+          aws bedrock-agent update-agent-alias \
+            --agent-id "$AGENT_ID" \
+            --agent-alias-id "$ALIAS_ID" \
+            --agent-alias-name "$ALIAS_NAME" \
+            --description "$ALIAS_DESCRIPTION" \
+            --region us-east-1
+
+          # Wait until alias is PREPARED (max ~5 min)
+          for i in $(seq 1 60); do
+            STATUS=$(aws bedrock-agent get-agent-alias \
+              --agent-id "$AGENT_ID" --agent-alias-id "$ALIAS_ID" \
+              --query 'agentAlias.agentAliasStatus' --output text \
+              --region us-east-1)
+            echo "alias status: $STATUS"
+            [ "$STATUS" = "PREPARED" ] && break
+            [ "$STATUS" = "FAILED" ] && { echo "alias prepare failed"; exit 1; }
+            sleep 5
+          done
+
+          # Pin alias to the version it just got (eliminates plan-time drift on
+          # routing_configuration on subsequent terraform runs).
+          NEW_VERSION=$(aws bedrock-agent get-agent-alias \
+            --agent-id "$AGENT_ID" --agent-alias-id "$ALIAS_ID" \
+            --query 'agentAlias.routingConfiguration[0].agentVersion' --output text \
+            --region us-east-1)
+          echo "alias now routes to version: $NEW_VERSION"
+
+          aws bedrock-agent update-agent-alias \
+            --agent-id "$AGENT_ID" \
+            --agent-alias-id "$ALIAS_ID" \
+            --agent-alias-name "$ALIAS_NAME" \
+            --description "$ALIAS_DESCRIPTION" \
+            --routing-configuration "[{\"agentVersion\":\"$NEW_VERSION\"}]" \
+            --region us-east-1

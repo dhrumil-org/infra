@@ -103,9 +103,9 @@ resource "aws_iam_role" "github_actions_prod" {
         StringLike = {
           "token.actions.githubusercontent.com:sub" = [
             # ref: patterns — plan job and other jobs without `environment:` set
-            "repo:${local.github_oidc_repos.infra}:ref:refs/heads/main",
-            "repo:${local.github_oidc_repos.backend}:ref:refs/heads/main",
-            "repo:${local.github_oidc_repos.frontend}:ref:refs/heads/main",
+            "repo:${local.github_oidc_repos.infra}:ref:refs/heads/prod",
+            "repo:${local.github_oidc_repos.backend}:ref:refs/heads/prod",
+            "repo:${local.github_oidc_repos.frontend}:ref:refs/heads/prod",
             # environment: patterns — apply job uses `environment: prod`
             "repo:${local.github_oidc_repos.infra}:environment:prod",
             "repo:${local.github_oidc_repos.backend}:environment:prod",

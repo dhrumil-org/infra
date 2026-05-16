@@ -1,0 +1,29 @@
+name: "Admin: Stage"
+
+on:
+  push:
+    branches: [stage]
+    paths:
+      - "deployments/admin/stage/**"
+      - "modules/s3-frontend/**"
+      - "modules/cloudfront/**"
+      - "modules/secrets-manager/**"
+  pull_request:
+    branches: [stage]
+    paths:
+      - "deployments/admin/stage/**"
+      - "modules/**"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    uses: ./.github/workflows/_terraform-reusable.yml
+    with:
+      working_directory: deployments/admin/stage
+      environment: stage
+    secrets:
+      AWS_ROLE_ARN: ${{ secrets.STAGE_TF_AWS_ROLE_ARN }}
