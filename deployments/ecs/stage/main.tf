@@ -392,13 +392,6 @@ module "security_groups" {
   vpc_id         = module.vpc.vpc_id
   vpc_cidr       = var.vpc_cidr
   container_port = var.container_port
-
-  # Lock the ALB ingress down to AWS API Gateway IP ranges (the only legitimate
-  # source of public traffic to the ALB in this architecture). Public scanners
-  # and random clients on the internet get connection refused; only API
-  # Gateway egress in this region can reach ports 80 and 443.
-  aws_region                      = var.aws_region
-  restrict_alb_to_api_gateway_ips = true
 }
 
 ################################################################################
