@@ -56,10 +56,8 @@ module "bedrock_kb" {
   # Multimodal storage for extracted images/figures
   create_multimodal_bucket = true
 
-  # Customer-managed KMS key for the KB S3 buckets (PHI documents).
-  # Overrides the tfvars default ("" -> SSE-S3) for HIPAA-clean encryption.
-  # Key is defined in kms.tf alongside this module call.
-  kms_key_arn = aws_kms_key.bedrock_kb.arn
+  # KMS (leave empty for SSE-S3)
+  kms_key_arn = var.kms_key_arn
 }
 
 ################################################################################

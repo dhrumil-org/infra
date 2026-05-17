@@ -54,22 +54,7 @@ resource "aws_s3_bucket_policy" "frontend" {
             "AWS:SourceArn" = var.cloudfront_distribution_arn
           }
         }
-      },
-      {
-        Sid       = "DenyInsecureTransport"
-        Effect    = "Deny"
-        Principal = "*"
-        Action    = "s3:*"
-        Resource = [
-          aws_s3_bucket.frontend.arn,
-          "${aws_s3_bucket.frontend.arn}/*",
-        ]
-        Condition = {
-          Bool = {
-            "aws:SecureTransport" = "false"
-          }
-        }
-      },
+      }
     ]
   })
 }

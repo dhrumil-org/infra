@@ -41,15 +41,3 @@ variable "asg_desired_capacity" {
   type        = number
   default     = 1
 }
-
-variable "ebs_kms_key_arn" {
-  description = "Customer-managed KMS key ARN for ECS instance root EBS volume encryption. Empty string falls back to AWS-managed aws/ebs (still encrypted, but not HIPAA-clean)."
-  type        = string
-  default     = ""
-}
-
-variable "ebs_volume_size_gb" {
-  description = "Root EBS volume size for ECS instances. ECS-optimized AMI defaults to 30 GB; bump if you cache larger images."
-  type        = number
-  default     = 30
-}
