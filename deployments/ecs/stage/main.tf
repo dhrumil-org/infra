@@ -582,6 +582,7 @@ module "rds" {
   # Encryption
   rds_kms_key_arn     = module.kms.key_arns["rds"]
   secrets_kms_key_arn = module.kms.key_arns["secrets"]
+  logs_kms_key_arn    = module.kms.key_arns["logs"]
 
   # Deletion protection (false for stage, true for prod)
   deletion_protection = var.db_deletion_protection

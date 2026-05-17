@@ -108,6 +108,17 @@ variable "secrets_kms_key_arn" {
   type        = string
 }
 
+variable "logs_kms_key_arn" {
+  description = "KMS key ARN for the pre-created RDS CloudWatch log groups (postgresql + upgrade)"
+  type        = string
+}
+
+variable "log_retention_in_days" {
+  description = "Retention for RDS CloudWatch log groups. Default 2557 = 7 years (HIPAA §164.530(j)(2))"
+  type        = number
+  default     = 2557
+}
+
 # Deletion protection
 variable "deletion_protection" {
   description = "Prevent accidental deletion"

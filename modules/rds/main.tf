@@ -143,6 +143,48 @@ resource "aws_secretsmanager_secret_version" "app_db" {
 }
 
 ################################################################################
+# CloudWatch Log Groups — Pre-created for HIPAA encryption + retention
+#
+# Background: RDS auto-creates these log groups on first export with the
+# AWS-owned default key and no retention. That fails two HIPAA controls:
+#   - §164.312(a)(2)(iv): want a key in our key policy domain
+#   - §164.530(j)(2): 6+ year retention on PHI-bearing audit records
+#     (postgresql logs contain query text → can leak PHI via WHERE clauses,
+#      error messages, etc.)
+#
+# Pre-creating them with our `logs` CMK + 7-year retention closes both gaps.
+# The aws_db_instance below declares depends_on so RDS finds these groups
+# already present and reuses them rather than auto-creating unencrypted ones.
+#
+# RDS log group naming convention: /aws/rds/instance/<db-identifier>/<log-type>
+#
+# Migration note: if these groups already exist in AWS (RDS auto-created them
+# before this module change), the parent stack must use `import` blocks to
+# claim ownership before `terraform apply` — otherwise apply fails with
+# ResourceAlreadyExistsException.
+################################################################################
+
+resource "aws_cloudwatch_log_group" "postgresql" {
+  name              = "/aws/rds/instance/${var.project}-${var.env}-db/postgresql"
+  retention_in_days = var.log_retention_in_days
+  kms_key_id        = var.logs_kms_key_arn
+
+  tags = {
+    Name = "${var.project}-${var.env}-rds-postgresql-logs"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "upgrade" {
+  name              = "/aws/rds/instance/${var.project}-${var.env}-db/upgrade"
+  retention_in_days = var.log_retention_in_days
+  kms_key_id        = var.logs_kms_key_arn
+
+  tags = {
+    Name = "${var.project}-${var.env}-rds-upgrade-logs"
+  }
+}
+
+################################################################################
 # RDS Instance — PostgreSQL 16, HIPAA compliant
 ################################################################################
 
@@ -208,6 +250,13 @@ resource "aws_db_instance" "this" {
   tags = {
     Name = "${var.project}-${var.env}-rds"
   }
+
+  # Pre-created encrypted log groups must exist before RDS starts exporting,
+  # otherwise RDS auto-creates unencrypted ones with no retention.
+  depends_on = [
+    aws_cloudwatch_log_group.postgresql,
+    aws_cloudwatch_log_group.upgrade,
+  ]
 
   lifecycle {
     ignore_changes = [
