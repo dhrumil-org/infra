@@ -1,5 +1,5 @@
 terraform {
-  required_version = ">= 1.6"
+  required_version = ">= 1.7" # `removed` blocks in invocation-logging.tf
 
   required_providers {
     aws = {
