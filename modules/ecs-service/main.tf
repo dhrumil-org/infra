@@ -1,10 +1,14 @@
 ################################################################################
 # CloudWatch Log Group (KMS encrypted, HIPAA retention)
+#
+# Retention is 7 years (2557 days) per §164.530(j)(2) — Spring Boot app logs
+# can contain PHI in error stack traces, request bodies, and structured log
+# fields, so they qualify as PHI-bearing audit records.
 ################################################################################
 
 resource "aws_cloudwatch_log_group" "this" {
   name              = "/ecs/${var.project}-${var.env}-${var.service_name}"
-  retention_in_days = 365
+  retention_in_days = 2557 # 7 years (HIPAA §164.530(j)(2))
   kms_key_id        = var.log_kms_key_arn
 
   tags = {
