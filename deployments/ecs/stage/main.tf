@@ -413,11 +413,26 @@ module "ecr" {
 ################################################################################
 
 resource "aws_s3_bucket" "alb_logs" {
-  bucket        = "${var.project}-${var.env}-alb-logs-${var.aws_account_id}"
-  force_destroy = true
+  bucket = "${var.project}-${var.env}-alb-logs-${var.aws_account_id}"
+  # HIPAA: prevent accidental destroy. Bucket holds long-term access logs
+  # subject to audit retention.
+  force_destroy = false
 
   tags = {
     Name = "${var.project}-${var.env}-alb-logs"
+  }
+}
+
+# ELB v2 access log delivery only supports SSE-S3 (AES256 with AWS-managed
+# keys), not customer-managed CMKs. AES256 still gives encryption-at-rest;
+# the bucket itself is private and gated by SecureTransport-only policy.
+resource "aws_s3_bucket_server_side_encryption_configuration" "alb_logs" {
+  bucket = aws_s3_bucket.alb_logs.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
   }
 }
 
@@ -455,7 +470,22 @@ resource "aws_s3_bucket_policy" "alb_logs" {
         }
         Action   = "s3:PutObject"
         Resource = "${aws_s3_bucket.alb_logs.arn}/${var.project}-${var.env}-alb/AWSLogs/${var.aws_account_id}/*"
-      }
+      },
+      {
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.alb_logs.arn,
+          "${aws_s3_bucket.alb_logs.arn}/*",
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
     ]
   })
 }

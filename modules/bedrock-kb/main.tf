@@ -185,11 +185,82 @@ resource "aws_s3_bucket_policy" "multimodal" {
             "aws:SourceAccount" = var.aws_account_id
           }
         }
-      }
+      },
+      {
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.multimodal[0].arn,
+          "${aws_s3_bucket.multimodal[0].arn}/*",
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
     ]
   })
 
   depends_on = [aws_s3_bucket_public_access_block.multimodal]
+}
+
+# Primary and secondary KB buckets — no per-resource principal grants needed
+# (the bedrock_kb role's IAM policy handles access), but we still want a
+# bucket policy that denies non-TLS traffic. HIPAA expects encryption in
+# transit for every object access.
+resource "aws_s3_bucket_policy" "primary" {
+  count  = var.create_primary_bucket ? 1 : 0
+  bucket = aws_s3_bucket.primary[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.primary[0].arn,
+        "${aws_s3_bucket.primary[0].arn}/*",
+      ]
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "false"
+        }
+      }
+    }]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.primary]
+}
+
+resource "aws_s3_bucket_policy" "secondary" {
+  count  = var.create_secondary_bucket ? 1 : 0
+  bucket = aws_s3_bucket.secondary[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "DenyInsecureTransport"
+      Effect    = "Deny"
+      Principal = "*"
+      Action    = "s3:*"
+      Resource = [
+        aws_s3_bucket.secondary[0].arn,
+        "${aws_s3_bucket.secondary[0].arn}/*",
+      ]
+      Condition = {
+        Bool = {
+          "aws:SecureTransport" = "false"
+        }
+      }
+    }]
+  })
+
+  depends_on = [aws_s3_bucket_public_access_block.secondary]
 }
 
 ################################################################################
