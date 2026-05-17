@@ -282,7 +282,45 @@ module "kms" {
                 "kms:EncryptionContext:aws:cloudtrail:arn" = "false"
               }
             }
-          }
+          },
+          {
+            # Auto Scaling service-linked role needs to use this CMK to encrypt
+            # the EBS root volumes of EC2 instances launched into the ECS ASG
+            # (set by modules/ecs-cluster/main.tf launch template
+            # block_device_mappings.kms_key_id). Without these two statements,
+            # ASG launches fail with Client.InvalidKMSKey.InvalidState.
+            #
+            # Two statements are required (per AWS docs) because the
+            # kms:GrantIsForAWSResource condition is only valid on CreateGrant
+            # and would block the other actions if combined.
+            Sid    = "AllowAutoScalingSLRForEBSKey"
+            Effect = "Allow"
+            Principal = {
+              AWS = "arn:aws:iam::${var.aws_account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+            }
+            Action = [
+              "kms:Encrypt",
+              "kms:Decrypt",
+              "kms:ReEncrypt*",
+              "kms:GenerateDataKey*",
+              "kms:DescribeKey",
+            ]
+            Resource = "*"
+          },
+          {
+            Sid    = "AllowAutoScalingSLRGrants"
+            Effect = "Allow"
+            Principal = {
+              AWS = "arn:aws:iam::${var.aws_account_id}:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+            }
+            Action   = "kms:CreateGrant"
+            Resource = "*"
+            Condition = {
+              Bool = {
+                "kms:GrantIsForAWSResource" = "true"
+              }
+            }
+          },
         ]
       })
     }
