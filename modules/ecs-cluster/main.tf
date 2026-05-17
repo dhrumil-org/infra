@@ -36,6 +36,23 @@ resource "aws_launch_template" "ecs" {
     arn = aws_iam_instance_profile.ecs.arn
   }
 
+  # Encrypt the root EBS volume for HIPAA §164.312(a)(2)(iv). The
+  # ECS-optimized AL2023 AMI's root device is /dev/xvda. Without this block
+  # the AMI's default block device mapping is used, which respects account
+  # default EBS encryption — but only for accounts where that's been turned
+  # on. Forcing it here makes encryption explicit and lets us pin a CMK.
+  block_device_mappings {
+    device_name = "/dev/xvda"
+
+    ebs {
+      volume_size           = var.ebs_volume_size_gb
+      volume_type           = "gp3"
+      encrypted             = true
+      kms_key_id            = var.ebs_kms_key_arn != "" ? var.ebs_kms_key_arn : null
+      delete_on_termination = true
+    }
+  }
+
   network_interfaces {
     associate_public_ip_address = false
     security_groups             = [var.ecs_security_group_id]

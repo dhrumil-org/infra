@@ -495,6 +495,11 @@ module "ecs_cluster" {
   asg_min_size          = var.asg_min_size
   asg_max_size          = var.asg_max_size
   asg_desired_capacity  = var.asg_desired_capacity
+
+  # HIPAA §164.312(a)(2)(iv): encrypt ECS instance root EBS volumes with
+  # a customer-managed key. Reuses the logs CMK because root volumes hold
+  # ephemeral container fs (logs, tmp, Docker layer cache).
+  ebs_kms_key_arn = module.kms.key_arns["logs"]
 }
 
 ################################################################################
