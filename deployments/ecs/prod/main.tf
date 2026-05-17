@@ -154,6 +154,11 @@ module "cloudtrail" {
 resource "aws_sns_topic" "alerts" {
   name = "${var.project}-${var.env}-alerts"
 
+  # HIPAA: encrypt SNS messages at rest with our CMK. The logs key policy
+  # has been updated to allow sns/cloudwatch/events service principals to
+  # GenerateDataKey + Decrypt so alarms can publish to this encrypted topic.
+  kms_master_key_id = module.kms.key_arns["logs"]
+
   tags = {
     Name = "${var.project}-${var.env}-alerts"
   }
@@ -302,7 +307,43 @@ module "kms" {
                 "kms:EncryptionContext:aws:cloudtrail:arn" = "false"
               }
             }
-          }
+          },
+          {
+            Sid    = "AllowSNSAtRestEncryption"
+            Effect = "Allow"
+            Principal = {
+              Service = "sns.amazonaws.com"
+            }
+            Action = [
+              "kms:GenerateDataKey*",
+              "kms:Decrypt",
+            ]
+            Resource = "*"
+          },
+          {
+            Sid    = "AllowCloudWatchAlarmsToPublishEncryptedSNS"
+            Effect = "Allow"
+            Principal = {
+              Service = "cloudwatch.amazonaws.com"
+            }
+            Action = [
+              "kms:GenerateDataKey*",
+              "kms:Decrypt",
+            ]
+            Resource = "*"
+          },
+          {
+            Sid    = "AllowEventBridgeToPublishEncryptedSNS"
+            Effect = "Allow"
+            Principal = {
+              Service = "events.amazonaws.com"
+            }
+            Action = [
+              "kms:GenerateDataKey*",
+              "kms:Decrypt",
+            ]
+            Resource = "*"
+          },
         ]
       })
     }
@@ -546,6 +587,9 @@ module "ecs_cluster" {
   asg_min_size          = var.asg_min_size
   asg_max_size          = var.asg_max_size
   asg_desired_capacity  = var.asg_desired_capacity
+
+  # HIPAA: encrypt ECS instance root EBS volumes with our CMK.
+  ebs_kms_key_arn = module.kms.key_arns["logs"]
 }
 
 ################################################################################

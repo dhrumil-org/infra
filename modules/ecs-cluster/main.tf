@@ -36,6 +36,21 @@ resource "aws_launch_template" "ecs" {
     arn = aws_iam_instance_profile.ecs.arn
   }
 
+  # Encrypt the root EBS volume with a customer-managed KMS key for HIPAA.
+  # ECS-optimized AMI's root device is /dev/xvda; size matches AMI default
+  # plus headroom for container images via ebs_volume_size_gb.
+  block_device_mappings {
+    device_name = "/dev/xvda"
+
+    ebs {
+      volume_size           = var.ebs_volume_size_gb
+      volume_type           = "gp3"
+      encrypted             = true
+      kms_key_id            = var.ebs_kms_key_arn != "" ? var.ebs_kms_key_arn : null
+      delete_on_termination = true
+    }
+  }
+
   network_interfaces {
     associate_public_ip_address = false
     security_groups             = [var.ecs_security_group_id]
