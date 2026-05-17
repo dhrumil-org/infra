@@ -20,18 +20,79 @@
 # Until this is enabled, no log entries exist — even though the app already
 # attaches requestMetadata on every call.
 #
+# HIPAA controls applied here:
+#   - kms_key_id : customer-managed CMK (aws_kms_key.bedrock_invocations)
+#   - retention  : 2557 days (~7 years) per §164.530(j)(2)
+#   - delivery   : text only; image/embedding/video disabled to limit PHI
+#
 # Cost (Apr 2026 us-east-1 list prices):
 #   - CWL ingestion : $0.50/GB     (~$0.0025/mo at current volume)
-#   - CWL storage   : $0.03/GB-mo  (kept 30 days, set below)
+#   - CWL storage   : $0.03/GB-mo  (7-year retention bumps this slightly)
 #   - Insights query: $0.005/GB scanned
 #
 # At 1000x growth this stays under ~$5/mo.
 ################################################################################
 
+# Dedicated CMK for the Bedrock invocation log group.
+# Bedrock invocation logging is account-wide (one config per region) and this
+# log group serves BOTH stage and prod traffic. We don't reuse either ECS
+# stack's "logs" CMK to avoid coupling a shared resource to one env's stack.
+data "aws_caller_identity" "bedrock_logging" {}
+
+resource "aws_kms_key" "bedrock_invocations" {
+  description             = "KMS key for Bedrock invocation log group (account-wide)"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnableRootAccountAdmin"
+        Effect    = "Allow"
+        Principal = { AWS = "arn:aws:iam::${data.aws_caller_identity.bedrock_logging.account_id}:root" }
+        Action    = "kms:*"
+        Resource  = "*"
+      },
+      {
+        # CloudWatch Logs uses this key to encrypt log events on ingestion.
+        # The EncryptionContext condition pins it to /aws/bedrock/* groups so
+        # the key can't be (mis)used to encrypt arbitrary other log groups.
+        Sid       = "AllowCloudWatchLogs"
+        Effect    = "Allow"
+        Principal = { Service = "logs.${var.aws_region}.amazonaws.com" }
+        Action = [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*",
+        ]
+        Resource = "*"
+        Condition = {
+          ArnLike = {
+            "kms:EncryptionContext:aws:logs:arn" = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.bedrock_logging.account_id}:log-group:/aws/bedrock/*"
+          }
+        }
+      },
+    ]
+  })
+
+  tags = {
+    Name    = "${var.project}-bedrock-invocations"
+    Purpose = "bedrock-invocation-log-group-encryption"
+  }
+}
+
+resource "aws_kms_alias" "bedrock_invocations" {
+  name          = "alias/${var.project}-bedrock-invocations"
+  target_key_id = aws_kms_key.bedrock_invocations.key_id
+}
+
 resource "aws_cloudwatch_log_group" "bedrock_invocations" {
   name              = "/aws/bedrock/${var.project}-invocations"
-  retention_in_days = 30
-  # KMS optional; SSE handled by CloudWatch Logs by default.
+  retention_in_days = 2557 # 7 years (HIPAA §164.530(j)(2))
+  kms_key_id        = aws_kms_key.bedrock_invocations.arn
 
   tags = {
     Project = var.project
