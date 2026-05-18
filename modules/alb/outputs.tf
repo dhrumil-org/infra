@@ -3,6 +3,11 @@ output "alb_arn" {
   value       = aws_lb.this.arn
 }
 
+output "alb_arn_suffix" {
+  description = "ALB ARN suffix (app/<name>/<id>) — used as the LoadBalancer dimension in CloudWatch alarms"
+  value       = aws_lb.this.arn_suffix
+}
+
 output "alb_dns_name" {
   description = "ALB DNS name"
   value       = aws_lb.this.dns_name
