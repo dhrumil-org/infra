@@ -1,21 +1,19 @@
 ################################################################################
-# CI/CD permissions policy — now attached only to the OIDC roles in oidc.tf
+# CI/CD permissions policy for the GitHub Actions OIDC roles defined in
+# oidc.tf (vocuone-github-actions-stage-oidc / -prod-oidc). GitHub Actions
+# assumes those roles via sts:AssumeRoleWithWebIdentity; this policy is what
+# they get attached to them.
 #
-# This policy used to be attached to a long-lived IAM user
-# (`vocuone-github-actions` + permanent access key). That user has been
-# removed as part of the HIPAA pre-prod IAM review — long-lived keys for
-# write-capable principals violate §164.308(a)(4) (minimum necessary +
-# rotation) and remove the per-run auditability OIDC provides through
-# unique role-session names.
+# The legacy long-lived IAM user that previously held this policy was deleted
+# during the HIPAA pre-prod IAM review (§164.308(a)(4) — minimum necessary +
+# rotation). Do not reintroduce an aws_iam_user here; add another OIDC role
+# in oidc.tf and attach this same policy instead.
 #
-# The POLICY itself is still needed because aws_iam_role_policy_attachment
-# .github_actions_stage and .github_actions_prod in oidc.tf attach it to
-# the two OIDC roles (vocuone-github-actions-stage-oidc /
-# vocuone-github-actions-prod-oidc). Those roles are what GitHub Actions
-# now assumes via sts:AssumeRoleWithWebIdentity.
-#
-# If you need to add another CI principal, do it as another OIDC role in
-# oidc.tf and attach this same policy — do NOT create another aws_iam_user.
+# Scope is intentionally near-admin: Terraform manages every service this
+# project uses, so the role needs `<service>:*` on most actions. Resource =
+# "*" everywhere is the known trade-off for one shared CI principal. If we
+# split CI into per-stack roles (e.g. one for ecs, one for bedrock), each
+# could be tightened — tracked in the IAM audit punch list.
 ################################################################################
 
 resource "aws_iam_policy" "cicd" {
@@ -25,142 +23,96 @@ resource "aws_iam_policy" "cicd" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      ##########################################################################
+      # Compute, networking, scaling
+      ##########################################################################
+      { Sid = "EC2", Effect = "Allow", Action = ["ec2:*"], Resource = "*" },
+      { Sid = "ECS", Effect = "Allow", Action = ["ecs:*"], Resource = "*" },
+      { Sid = "ECR", Effect = "Allow", Action = ["ecr:*"], Resource = "*" },
+      { Sid = "ELB", Effect = "Allow", Action = ["elasticloadbalancing:*"], Resource = "*" },
+      { Sid = "Lambda", Effect = "Allow", Action = ["lambda:*"], Resource = "*" },
+      { Sid = "AutoScaling", Effect = "Allow", Action = ["autoscaling:*"], Resource = "*" },
+      { Sid = "ApplicationAutoScaling", Effect = "Allow", Action = ["application-autoscaling:*"], Resource = "*" },
+
+      ##########################################################################
+      # Storage & data
+      ##########################################################################
+      { Sid = "S3", Effect = "Allow", Action = ["s3:*"], Resource = "*" },
+      { Sid = "S3Vectors", Effect = "Allow", Action = ["s3vectors:*"], Resource = "*" },
+      { Sid = "RDS", Effect = "Allow", Action = ["rds:*"], Resource = "*" },
+      { Sid = "DynamoDB", Effect = "Allow", Action = ["dynamodb:*"], Resource = "*" },
+      { Sid = "Backup", Effect = "Allow", Action = ["backup:*", "backup-storage:*"], Resource = "*" },
+
+      ##########################################################################
+      # Encryption & secrets
+      ##########################################################################
+      { Sid = "KMS", Effect = "Allow", Action = ["kms:*"], Resource = "*" },
+      { Sid = "SecretsManager", Effect = "Allow", Action = ["secretsmanager:*"], Resource = "*" },
+      { Sid = "ACM", Effect = "Allow", Action = ["acm:*"], Resource = "*" },
+
+      ##########################################################################
+      # Public edge & DNS
+      ##########################################################################
+      { Sid = "Route53", Effect = "Allow", Action = ["route53:*"], Resource = "*" },
+      { Sid = "CloudFront", Effect = "Allow", Action = ["cloudfront:*"], Resource = "*" },
+      { Sid = "APIGateway", Effect = "Allow", Action = ["apigateway:*"], Resource = "*" },
+      { Sid = "WAFv2", Effect = "Allow", Action = ["wafv2:*"], Resource = "*" },
+
+      ##########################################################################
+      # Observability, alerting, audit
+      ##########################################################################
+      { Sid = "CloudWatch", Effect = "Allow", Action = ["cloudwatch:*", "logs:*"], Resource = "*" },
+      { Sid = "CloudTrail", Effect = "Allow", Action = ["cloudtrail:*"], Resource = "*" },
+      { Sid = "EventBridge", Effect = "Allow", Action = ["events:*"], Resource = "*" },
+      { Sid = "SNS", Effect = "Allow", Action = ["sns:*"], Resource = "*" },
+      { Sid = "Synthetics", Effect = "Allow", Action = ["synthetics:*"], Resource = "*" },
+      { Sid = "Inspector", Effect = "Allow", Action = ["inspector2:*"], Resource = "*" },
+
+      ##########################################################################
+      # Deployment (CodePipeline + CodeDeploy stack)
+      ##########################################################################
+      { Sid = "CodeDeploy", Effect = "Allow", Action = ["codedeploy:*"], Resource = "*" },
+      { Sid = "CodePipeline", Effect = "Allow", Action = ["codepipeline:*", "codestar-connections:*"], Resource = "*" },
+
+      ##########################################################################
+      # AI / Bedrock
+      ##########################################################################
+      { Sid = "Bedrock", Effect = "Allow", Action = ["bedrock:*", "bedrock-agent:*"], Resource = "*" },
+
+      ##########################################################################
+      # SSM Parameter Store (Terraform reads/writes parameters during apply)
+      ##########################################################################
       {
-        Sid    = "EC2VPC"
+        Sid    = "SSM"
         Effect = "Allow"
         Action = [
-          "ec2:*",
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:PutParameter",
+          "ssm:DeleteParameter",
+          "ssm:DescribeParameters",
         ]
         Resource = "*"
       },
+
+      ##########################################################################
+      # STS — just session/identity calls; Terraform self-checks via these
+      ##########################################################################
       {
-        Sid      = "ECS"
+        Sid      = "STS"
         Effect   = "Allow"
-        Action   = ["ecs:*"]
+        Action   = ["sts:GetCallerIdentity", "sts:TagSession"]
         Resource = "*"
       },
+
+      ##########################################################################
+      # IAM — Terraform manages every role/policy/instance-profile in the repo,
+      # and the OIDC provider that this very role authenticates through.
+      # Action list is enumerated (no iam:*) to keep the blast radius bounded
+      # to what Terraform actually needs.
+      ##########################################################################
       {
-        Sid      = "ECR"
-        Effect   = "Allow"
-        Action   = ["ecr:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "ELB"
-        Effect   = "Allow"
-        Action   = ["elasticloadbalancing:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "RDS"
-        Effect   = "Allow"
-        Action   = ["rds:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "S3"
-        Effect   = "Allow"
-        Action   = ["s3:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "SecretsManager"
-        Effect   = "Allow"
-        Action   = ["secretsmanager:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "KMS"
-        Effect   = "Allow"
-        Action   = ["kms:*"]
-        Resource = "*"
-      },
-      {
-        Sid    = "CloudWatch"
-        Effect = "Allow"
-        Action = [
-          "cloudwatch:*",
-          "logs:*",
-        ]
-        Resource = "*"
-      },
-      {
-        Sid      = "CloudTrail"
-        Effect   = "Allow"
-        Action   = ["cloudtrail:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "CodeDeploy"
-        Effect   = "Allow"
-        Action   = ["codedeploy:*"]
-        Resource = "*"
-      },
-      {
-        Sid    = "CodePipeline"
-        Effect = "Allow"
-        Action = [
-          "codepipeline:*",
-          "codestar-connections:*",
-        ]
-        Resource = "*"
-      },
-      {
-        Sid      = "APIGateway"
-        Effect   = "Allow"
-        Action   = ["apigateway:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "Route53"
-        Effect   = "Allow"
-        Action   = ["route53:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "ACM"
-        Effect   = "Allow"
-        Action   = ["acm:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "CloudFront"
-        Effect   = "Allow"
-        Action   = ["cloudfront:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "Synthetics"
-        Effect   = "Allow"
-        Action   = ["synthetics:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "Lambda"
-        Effect   = "Allow"
-        Action   = ["lambda:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "SNS"
-        Effect   = "Allow"
-        Action   = ["sns:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "DynamoDB"
-        Effect   = "Allow"
-        Action   = ["dynamodb:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "AutoScaling"
-        Effect   = "Allow"
-        Action   = ["autoscaling:*"]
-        Resource = "*"
-      },
-      {
-        Sid    = "IAM"
+        Sid    = "IAMRoles"
         Effect = "Allow"
         Action = [
           "iam:CreateRole",
@@ -175,6 +127,17 @@ resource "aws_iam_policy" "cicd" {
           "iam:GetRolePolicy",
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:ListRoleTags",
+          "iam:ListRoles",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "IAMPolicies"
+        Effect = "Allow"
+        Action = [
           "iam:CreatePolicy",
           "iam:DeletePolicy",
           "iam:GetPolicy",
@@ -182,16 +145,34 @@ resource "aws_iam_policy" "cicd" {
           "iam:CreatePolicyVersion",
           "iam:DeletePolicyVersion",
           "iam:ListPolicyVersions",
+          "iam:TagPolicy",
+          "iam:UntagPolicy",
+          "iam:ListPolicies",
+          "iam:ListEntitiesForPolicy",
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "IAMInstanceProfiles"
+        Effect = "Allow"
+        Action = [
           "iam:CreateInstanceProfile",
           "iam:DeleteInstanceProfile",
           "iam:GetInstanceProfile",
           "iam:AddRoleToInstanceProfile",
           "iam:RemoveRoleFromInstanceProfile",
-          "iam:TagRole",
-          "iam:UntagRole",
-          "iam:ListRoleTags",
-          "iam:TagPolicy",
-          "iam:UntagPolicy",
+          "iam:ListInstanceProfiles",
+          "iam:ListInstanceProfilesForRole",
+        ]
+        Resource = "*"
+      },
+      {
+        # Needed for the Grafana user managed in this same stack and the
+        # developer users in iam-prod / iam-stage. Future direction: replace
+        # those with OIDC roles too, then this block can be trimmed.
+        Sid    = "IAMUsers"
+        Effect = "Allow"
+        Action = [
           "iam:CreateUser",
           "iam:DeleteUser",
           "iam:GetUser",
@@ -208,15 +189,17 @@ resource "aws_iam_policy" "cicd" {
           "iam:DeleteUserPolicy",
           "iam:GetUserPolicy",
           "iam:ListUserPolicies",
-          "iam:ListEntitiesForPolicy",
-          "iam:ListRoles",
           "iam:ListUsers",
-          "iam:ListPolicies",
-          "iam:ListInstanceProfiles",
-          "iam:ListInstanceProfilesForRole",
-          # OIDC provider — needed so terraform-via-OIDC can refresh
-          # aws_iam_openid_connect_provider.github (the resource that
-          # underpins the very role being assumed for this run).
+        ]
+        Resource = "*"
+      },
+      {
+        # OIDC provider — terraform-via-OIDC must be able to refresh
+        # aws_iam_openid_connect_provider.github (the resource that underpins
+        # the very role being assumed for this run).
+        Sid    = "IAMOIDCProvider"
+        Effect = "Allow"
+        Action = [
           "iam:CreateOpenIDConnectProvider",
           "iam:DeleteOpenIDConnectProvider",
           "iam:GetOpenIDConnectProvider",
@@ -230,85 +213,17 @@ resource "aws_iam_policy" "cicd" {
         ]
         Resource = "*"
       },
-      {
-        Sid    = "SSM"
-        Effect = "Allow"
-        Action = [
-          "ssm:GetParameter",
-          "ssm:GetParameters",
-          "ssm:PutParameter",
-          "ssm:DeleteParameter",
-          "ssm:DescribeParameters",
-        ]
-        Resource = "*"
-      },
-      ##########################################################################
-      # Below: gaps found while running CI/CD as the OIDC role. Each block
-      # corresponds to a terraform refresh that previously hit AccessDenied.
-      ##########################################################################
-      {
-        Sid      = "WAFv2"
-        Effect   = "Allow"
-        Action   = ["wafv2:*"]
-        Resource = "*"
-      },
-      {
-        Sid      = "ApplicationAutoScaling"
-        Effect   = "Allow"
-        Action   = ["application-autoscaling:*"]
-        Resource = "*"
-      },
-      {
-        Sid    = "Backup"
-        Effect = "Allow"
-        Action = [
-          "backup:*",
-          "backup-storage:*",
-        ]
-        Resource = "*"
-      },
-      {
-        Sid      = "EventBridge"
-        Effect   = "Allow"
-        Action   = ["events:*"]
-        Resource = "*"
-      },
-      {
-        Sid    = "Bedrock"
-        Effect = "Allow"
-        Action = [
-          "bedrock:*",
-          "bedrock-agent:*",
-        ]
-        Resource = "*"
-      },
-      {
-        Sid      = "Inspector"
-        Effect   = "Allow"
-        Action   = ["inspector2:*"]
-        Resource = "*"
-      },
-      {
-        Sid    = "STS"
-        Effect = "Allow"
-        Action = [
-          "sts:GetCallerIdentity",
-          "sts:TagSession",
-        ]
-        Resource = "*"
-      },
-      {
-        Sid      = "S3Vectors"
-        Effect   = "Allow"
-        Action   = ["s3vectors:*"]
-        Resource = "*"
-      },
     ]
   })
 }
 
 ################################################################################
 # IAM User — Grafana Cloud (read-only CloudWatch access)
+#
+# Grafana Cloud is external SaaS and can't use AWS OIDC, so this is one of
+# the very few legitimate long-lived-key users. Scope is read-only via the
+# AWS-managed CloudWatchReadOnlyAccess policy — no access to log group
+# contents that are encrypted with our CMKs, just metric data and metadata.
 ################################################################################
 
 resource "aws_iam_user" "grafana" {
@@ -330,7 +245,8 @@ resource "aws_iam_user_policy_attachment" "grafana_cloudwatch" {
 }
 
 ################################################################################
-# Outputs
+# Outputs — Grafana access keys (paste into Grafana Cloud's CloudWatch data
+# source config). The CI/CD OIDC roles in oidc.tf have their own outputs.
 ################################################################################
 
 output "grafana_access_key_id" {
