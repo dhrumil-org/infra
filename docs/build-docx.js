@@ -126,6 +126,7 @@ const titlePage = [
     ['Owner', 'DevOps Lead'],
     ['Status', 'Draft for review'],
     ['Scope', 'AWS account 499290259511, region us-east-1, envs stage + prod'],
+    ['Components', 'Clinician app (frontend + backend), Admin console (frontend + shared backend), Bedrock AI'],
     ['Standards', 'HIPAA Security Rule (45 CFR §164.302–.318), §164.530(j)(2), AWS HIPAA Shared Responsibility Model, NIST SP 800-66'],
   ], [2640, 6720]),
   new Paragraph({
@@ -144,7 +145,7 @@ const toc = [
 
 const sec1 = [
   h1('1. Executive Summary'),
-  p('vocuone runs a clinical case-companion app processing PHI exclusively on HIPAA-eligible AWS services under a signed BAA. All technical safeguards are implemented as code in this Terraform repository and continuously verified by scripts/hipaa-encryption-audit.sh.'),
+  p('vocuone runs a clinical case-companion application (clinician web app + internal admin console + Bedrock-backed AI) processing PHI exclusively on HIPAA-eligible AWS services under a signed BAA. All technical safeguards are implemented as code in this Terraform repository and continuously verified by scripts/hipaa-encryption-audit.sh.'),
   tbl(['HIPAA Section', 'Status'], [
     ['§164.308 Administrative', 'Compliant'],
     ['§164.310 Physical', 'Inherited from AWS via BAA'],
@@ -156,25 +157,39 @@ const sec1 = [
 
 const sec2 = [
   h1('2. Scope'),
-  p('In scope: AWS account 499290259511, us-east-1, stage + prod environments. Traffic path: client → CloudFront → API Gateway → ALB → ECS task → RDS / Bedrock / S3.'),
+  p('In scope: AWS account 499290259511, us-east-1, stage + prod environments. Three product surfaces share a single backend and data plane:'),
+  tbl(['Surface', 'Audience', 'Frontend hosting', 'Backend'], [
+    ['Clinician app', 'Doctors / care team', 'CloudFront + private S3 (OAC)', 'Shared ECS API'],
+    ['Admin console', 'Internal operations', 'CloudFront + private S3 (OAC)', 'Shared ECS API'],
+    ['AI / KB', '(Server-side only)', 'n/a', 'Bedrock + Bedrock Agent + KB'],
+  ], [2160, 2400, 2640, 2160]),
+  spacer(),
+  p('Traffic path: client → CloudFront (frontend static assets) AND client → API Gateway → ALB → ECS task → RDS / Bedrock / S3.'),
   p('Out of scope: Application code (separate review), endpoint security, AWS physical security (BAA-inherited).'),
 ];
 
 const archLines = [
-  '[Browser] —TLS1.2+→ [CloudFront] —TLS→ [ALB :443]',
-  '[Browser] —TLS1.2+→ [API Gateway] —HTTP*→ [ALB :80] —HTTP→ [ECS task]',
-  '                                                              │',
-  '       ┌──────────────────────────────────────────────────────┤',
-  '       ▼                ▼                ▼                    ▼',
-  '  [RDS Postgres]   [Bedrock KB]    [Secrets Mgr]      [CloudWatch Logs]',
-  '   (CMK, TLS)      (SSE-S3)         (CMK)             (CMK, 7yr ret.)',
-  '       │                                                      ▲',
-  '       └──► Automated backups + AWS Backup vault (CMK)        │',
-  '                                                              │',
-  '[All API calls] ────────────────────► [CloudTrail S3 (CMK) + CWL tail]',
+  '                          ┌── CloudFront (clinician) ─► S3 app bucket (private, OAC)',
+  '[Clinician] —TLS1.2+─────┤',
+  '                          └── API Gateway ─HTTP*─► ALB:80 ─► ECS task ──┐',
+  '                                                                         │',
+  '                          ┌── CloudFront (admin) ────► S3 admin bucket (private, OAC)',
+  '[Admin operator] —TLS1.2+─┤',
+  '                          └── API Gateway ─HTTP*─► ALB:80 ─► ECS task ──┤',
+  '                                                                         │',
+  '              ┌──────────────────┬──────────────────┬───────────────────┤',
+  '              ▼                  ▼                  ▼                   ▼',
+  '         [RDS Postgres]    [Bedrock KB]      [Secrets Mgr]      [CloudWatch Logs]',
+  '         (Multi-AZ, CMK,    (S3 SSE-S3)        (CMK)             (CMK, 7yr ret.)',
+  '          force_ssl)              │                                     ▲',
+  '              │                   │                                     │',
+  '              └──► AWS Backup vault (CMK) + automated snapshots         │',
+  '                                                                        │',
+  '[All AWS API calls] ─────────────────────► [CloudTrail S3 (CMK) + CWL tail]',
   '',
   '* API Gateway → ALB :80 hop is plaintext on AWS-internal network only;',
   '  gated by WAF requiring X-Gateway-Secret header. Direct-to-ALB blocked.',
+  '* Both S3 frontend buckets contain only static JS/CSS — no PHI at rest.',
 ];
 
 const sec3 = [
@@ -187,15 +202,18 @@ const sec3 = [
 const sec4 = [
   h1('4. AWS Services & HIPAA Eligibility'),
   p('Every service handling PHI is on the current AWS HIPAA Eligible Services Reference list.'),
-  tbl(['Service', 'Purpose', 'PHI?'], [
-    ['EC2 + ECS + EBS', 'App compute', 'Transient'],
+  tbl(['Service', 'Purpose', 'PHI at rest?'], [
+    ['EC2 + ECS + EBS', 'App compute (shared backend)', 'Transient'],
     ['RDS PostgreSQL', 'Primary patient DB', 'Durable'],
-    ['S3 (KB buckets)', 'KB documents', 'Durable'],
+    ['S3 — KB buckets (3)', 'Bedrock KB documents', 'Durable'],
+    ['S3 — Clinician app frontend', 'Static React build (JS/CSS only)', 'None'],
+    ['S3 — Admin console frontend', 'Static React build (JS/CSS only)', 'None'],
+    ['CloudFront (× 2 — app + admin)', 'Frontend CDN with TLS 1.2+', 'In-flight'],
     ['Bedrock + Bedrock Agents', 'LLM inference, KB retrieval', 'In-flight + retrieval'],
-    ['CloudFront + API Gateway + ALB + WAF', 'Public ingress', 'In-flight'],
+    ['API Gateway + ALB + WAF', 'Public API ingress', 'In-flight'],
     ['Lambda', 'CodeDeploy hook, Synthetics canary', 'No'],
     ['CloudWatch + CloudTrail', 'Audit + logs', 'Durable (audit)'],
-    ['Secrets Manager', 'DB creds', 'Creds only'],
+    ['Secrets Manager', 'DB creds, frontend env configs', 'Creds only'],
     ['KMS', 'Encryption keys', 'No (keys)'],
     ['AWS Backup', 'Cross-service backup', 'Durable (snapshots)'],
     ['VPC, Route 53, ACM, Inspector, SSM, EventBridge, SNS, Synthetics, CodePipeline/Deploy/Build', 'Supporting', 'No / N/A'],
@@ -208,13 +226,16 @@ const sec5 = [
   h1('5. Technical Safeguards (§164.312)', { pageBreakBefore: true }),
 
   h2('Encryption at rest (§164.312(a)(2)(iv))'),
-  p('Every PHI store is AES-256 encrypted:'),
+  p('Every PHI store is AES-256 encrypted; frontend buckets contain no PHI but are still encrypted:'),
   tbl(['Store', 'Key'], [
     ['RDS storage + Perf Insights + automated snapshots', 'CMK alias/vocuone-${env}-rds'],
     ['EBS — ECS root volumes', 'CMK alias/vocuone-${env}-logs'],
-    ['S3 — Bedrock KB / ALB logs / pipeline / canary', 'AES-256 SSE-S3 (BAA-acceptable)'],
+    ['S3 — Bedrock KB (3 buckets)', 'AES-256 SSE-S3 (BAA-acceptable)'],
+    ['S3 — Clinician app frontend', 'AES-256 SSE-S3'],
+    ['S3 — Admin console frontend', 'AES-256 SSE-S3'],
+    ['S3 — ALB logs / pipeline / canary', 'AES-256 SSE-S3'],
     ['S3 — CloudTrail', 'SSE-KMS, CMK alias/vocuone-${env}-logs'],
-    ['CWL — app, Bedrock, RDS postgresql, VPC flow, CloudTrail', 'CMK alias/vocuone-${env}-logs (Bedrock has dedicated CMK)'],
+    ['CWL — app, Bedrock, RDS postgresql, VPC flow, CloudTrail', 'CMK alias/vocuone-${env}-logs (Bedrock dedicated CMK)'],
     ['Secrets Manager (PHI-bearing)', 'CMK alias/vocuone-${env}-secrets'],
     ['AWS Backup vault', 'CMK alias/vocuone-${env}-backup'],
     ['ECR images', 'CMK alias/vocuone-${env}-ecr'],
@@ -224,8 +245,11 @@ const sec5 = [
 
   h2('Encryption in transit (§164.312(e))'),
   tbl(['Path', 'Protection'], [
-    ['Browser → CloudFront → ALB', 'TLS 1.2+ (ACM certs, ELBSecurityPolicy-TLS13-1-2-2021-06)'],
+    ['Clinician browser → CloudFront (app)', 'TLS 1.2+ (ACM cert, redirect-to-https viewer policy)'],
+    ['Admin operator → CloudFront (admin)', 'TLS 1.2+ (ACM cert, redirect-to-https viewer policy)'],
+    ['CloudFront → S3 frontend buckets', 'TLS via Origin Access Control; buckets block all non-CloudFront access'],
     ['Client → API Gateway', 'TLS 1.2+ (AWS-managed)'],
+    ['CloudFront / API Gateway → ALB :443', 'TLS 1.2+ (ELBSecurityPolicy-TLS13-1-2-2021-06)'],
     ['API Gateway → ALB :80', 'HTTP on AWS regional network; WAF gate (X-Gateway-Secret); compensating control per AWS HIPAA reference architecture'],
     ['ALB → ECS task', 'HTTP intra-VPC private subnet; SG-restricted; AWS-standard pattern'],
     ['ECS → RDS', 'TLS enforced (rds.force_ssl=1)'],
@@ -234,6 +258,8 @@ const sec5 = [
 
   h2('Access control (§164.312(a)(1))'),
   bullet('Apps: ECS task IAM roles with per-task credentials via IMDSv2; RDS IAM database auth + Secrets Manager-vended password (dual auth).'),
+  bullet('Frontend buckets: S3 bucket policy denies all access except the specific CloudFront distribution via OAC; no public access; BlockPublicAccess enforced at the bucket level.'),
+  bullet('Admin console: identical S3 + CloudFront pattern as clinician app; admin authentication happens at the application layer (separate JWT scope) — infra-side controls are identical.'),
   bullet('CI/CD: GitHub Actions OIDC sts:AssumeRoleWithWebIdentity, sub/aud claims pinned to repo + branch + environment. No long-lived CI keys.'),
   bullet('Operators: SSM Session Manager (no SSH); MFA on console; CloudTrail logged.'),
   bullet('Service-to-service: trust policies with aws:SourceAccount + aws:SourceArn confused-deputy guards.'),
@@ -241,10 +267,11 @@ const sec5 = [
   h2('Audit controls + integrity (§164.312(b), (c))'),
   bullet('CloudTrail (all API events + KB S3 data events) → S3 (no expiry) + CWL tail (365d); log file validation on.'),
   bullet('App/Bedrock/RDS audit log groups: CMK + 2557d (7yr) retention per §164.530(j)(2).'),
+  bullet('CloudFront access logs: optional, sent to a separate S3 bucket with SSE-S3 if enabled.'),
   bullet('KMS key rotation, S3 versioning on KB buckets, RDS PITR.'),
 
   h2('Authentication (§164.312(d))'),
-  p('JWT for end users; OIDC for CI; IAM roles for services; MFA + SSM for operators.'),
+  p('JWT for end users (separate scopes for clinician vs admin); OIDC for CI; IAM roles for services; MFA + SSM for operators.'),
 ];
 
 const sec6 = [
@@ -285,7 +312,7 @@ const sec10 = [
   bullet('Backend HTTP 5xx (ALB target + ELB layer)'),
   bullet('ECS CPU / memory'),
   bullet('Bedrock latency p95, invocation throttling, errors'),
-  bullet('Synthetics canary failures'),
+  bullet('Synthetics canary failures (probes both CloudFront distributions + the API)'),
   bullet('App-level AI call error rate (metric filter on /ecs/${env}-app)'),
 ];
 
@@ -300,7 +327,7 @@ const sec11 = [
     ['alias/vocuone-bedrock-invocations', 'Bedrock invocation logs (account-wide singleton)'],
   ], [4080, 5280]),
   spacer(),
-  p('All CMKs: rotation enabled, 30-day deletion window.'),
+  p('All CMKs: rotation enabled, 30-day deletion window. Frontend S3 buckets use SSE-S3 (AWS-managed) since they hold no PHI; HIPAA-acceptable under BAA.'),
 ];
 
 const sec12 = [

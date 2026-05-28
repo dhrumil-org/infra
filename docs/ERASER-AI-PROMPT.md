@@ -9,21 +9,47 @@ Paste the block below into https://www.eraser.io/ai/aws-diagram-generator and cl
 ```
 Generate an AWS architecture diagram for a HIPAA-compliant clinical SaaS
 application called vocuone, running in a single AWS account in us-east-1
-with separate stage and prod environments.
+with separate stage and prod environments. The product has two distinct
+frontend surfaces (clinician app and internal admin console) that share
+a single backend.
 
-External:
-- End users are clinicians on web browsers.
+External users:
+- Clinicians on web browsers (use the clinician app frontend).
+- Internal operations staff on web browsers (use the admin console).
 
-Edge layer (regional, outside VPC):
-- Amazon CloudFront distribution serving the frontend with TLS 1.2+
-  (ACM certificate). Originates from a private S3 bucket via OAC.
-- Amazon API Gateway (REST) handling all backend API traffic over TLS 1.2+.
+Frontend hosting — TWO separate static-site stacks:
 
-Application layer (inside a single custom VPC across 2 AZs):
+1. Clinician app frontend ("vocuone-frontend"):
+   - Amazon CloudFront distribution with TLS 1.2+ (ACM certificate),
+     viewer protocol policy redirect-to-https.
+   - Origin: private S3 bucket containing the React build (JS, CSS, HTML).
+   - Access from CloudFront to S3 via Origin Access Control (OAC).
+   - Bucket has BlockPublicAccess on; bucket policy denies all access
+     except the specific CloudFront distribution.
+   - DNS aliases: stage-app.vocuone.ai / app.vocuone.ai.
+
+2. Admin console frontend ("vocuone-admin"):
+   - Identical pattern: separate CloudFront distribution + separate
+     private S3 bucket via OAC.
+   - DNS alias: admin.vocuone.ai (with stage variant).
+   - Serves only internal staff; authentication enforced at the
+     application layer with a separate JWT scope from the clinician
+     app, but infra-side controls (S3 OAC, CloudFront TLS) are
+     identical.
+
+Note: Both frontend S3 buckets contain only static JS/CSS/HTML — no PHI
+is stored at rest in them. The browser running the JavaScript handles
+PHI in memory and sends/receives it via the backend API.
+
+Backend edge layer (regional, outside VPC):
+- Amazon API Gateway (REST) handling all backend API traffic over
+  TLS 1.2+. Both frontends call the same API.
+
+Backend application layer (inside a single custom VPC across 2 AZs):
 - An internet-facing Application Load Balancer with three listeners:
-  HTTPS on 443 (production traffic from CloudFront), HTTPS on 8443 (test
-  listener used by CodeDeploy blue/green), and HTTP on 80 (used only by
-  API Gateway HTTP_PROXY integration).
+  HTTPS on 443 (production traffic from CloudFront), HTTPS on 8443
+  (test listener used by CodeDeploy blue/green), and HTTP on 80
+  (used only by API Gateway HTTP_PROXY integration).
 - AWS WAF (WAFv2) Web ACL attached to the ALB, requiring a custom
   X-Gateway-Secret header on every request to block any direct hits.
 - ECS cluster on EC2 (Amazon Linux 2023 ECS-optimized AMI) running a
@@ -31,7 +57,8 @@ Application layer (inside a single custom VPC across 2 AZs):
 - Auto Scaling Group manages the EC2 instances; CodeDeploy performs
   blue/green deployments between two ECS target groups.
 - Amazon RDS for PostgreSQL in private subnets, Multi-AZ in prod,
-  with IAM database authentication and SSL forced at the parameter group.
+  with IAM database authentication and SSL forced at the parameter
+  group level.
 
 AI / data layer:
 - Amazon Bedrock for LLM inference (Claude Sonnet + Haiku models).
@@ -41,15 +68,16 @@ AI / data layer:
 
 Storage & secrets:
 - AWS Secrets Manager for database credentials and third-party API keys.
-- Amazon ECR for the application's Docker images.
+- Amazon ECR for the backend application's Docker images.
 - Three additional S3 buckets: ALB access logs, CloudTrail logs,
   CodePipeline artifacts.
 
-Encryption:
+Encryption (KMS):
 - AWS KMS with separate customer-managed keys for each data domain:
   one for CloudWatch Logs + CloudTrail + EBS, one for RDS, one for
   Secrets Manager, one for ECR, one for AWS Backup, and a dedicated
   key for Bedrock invocation logs.
+- Frontend S3 buckets use SSE-S3 (AWS-managed) since they hold no PHI.
 
 Audit / observability (account-wide):
 - AWS CloudTrail capturing management events plus S3 data events on
@@ -66,8 +94,8 @@ Audit / observability (account-wide):
 - AWS Backup vault for RDS automated snapshots.
 
 CI/CD:
-- AWS CodePipeline triggered by ECR image push (EventBridge rule)
-- AWS CodeBuild producing the task definition
+- AWS CodePipeline triggered by ECR image push (EventBridge rule).
+- AWS CodeBuild producing the task definition.
 - AWS CodeDeploy performing the blue/green ECS deployment, with a
   Lambda function (listener-presync) running as a deployment hook.
 - GitHub Actions authenticates via AWS IAM OIDC provider (no long-
@@ -83,17 +111,24 @@ Network:
 - Route 53 for DNS, ACM for TLS certificates.
 
 Layout preference:
-- Three horizontal swim lanes: Public Edge (top), VPC (middle, with
-  public subnets stacked above private subnets), and Audit /
-  Observability (bottom).
-- Color-code data flows: green for TLS-encrypted PHI paths, dashed
-  orange for AWS-internal plaintext paths (API Gateway → ALB :80,
-  ALB → ECS task), grey for audit/log writes, blue for alerting
-  fan-out.
+- Four horizontal swim lanes:
+  1. Frontend Edge (top): both CloudFront distributions + their S3
+     buckets, shown side by side
+  2. Backend Edge: API Gateway + WAF
+  3. VPC (middle, with public subnets stacked above private subnets):
+     ALB, NAT, ECS, RDS, Bedrock connections
+  4. Audit / Observability (bottom): CloudTrail, CloudWatch Logs,
+     AWS Backup, alarms, SNS
+- Color-code data flows:
+  - Green: TLS-encrypted PHI paths
+  - Dashed orange: AWS-internal plaintext paths (API Gateway → ALB :80,
+    ALB → ECS task)
+  - Grey: audit/log writes
+  - Blue: alerting fan-out
 - Use official AWS service icons.
 - Label every cross-service edge with the protocol (HTTPS / HTTP /
-  TLS) and the auth mechanism (IAM role, IAM auth, ACM cert,
-  OIDC).
+  TLS) and the auth mechanism (IAM role, IAM auth, ACM cert, OIDC,
+  OAC for S3).
 ```
 
 ---
@@ -103,6 +138,7 @@ Layout preference:
 1. Eraser will produce the diagram with editable shapes.
 2. Verify these key annotations are present (add manually if not):
    - "ALB :80 = AWS-internal only, WAF-gated"
+   - "Both frontend S3 buckets = static assets, no PHI at rest"
    - "RDS: Multi-AZ, CMK, force_ssl=1, IAM auth, PITR"
    - "All CWL groups: CMK + 7yr retention (PHI groups)"
    - "OIDC roles pinned to repo + branch + env"

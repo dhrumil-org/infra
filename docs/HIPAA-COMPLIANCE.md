@@ -7,13 +7,14 @@
 | Owner | DevOps Lead |
 | Status | Draft for review |
 | Scope | AWS account `499290259511`, region `us-east-1`, envs `stage` + `prod` |
+| Components | Clinician app (frontend + backend), Admin console (frontend + shared backend), Bedrock AI |
 | Standards | HIPAA Security Rule (45 CFR §164.302–.318), §164.530(j)(2), AWS HIPAA Shared Responsibility Model, NIST SP 800-66 |
 
 ---
 
 ## 1. Executive Summary
 
-vocuone runs a clinical case-companion application processing PHI exclusively on HIPAA-eligible AWS services under a signed BAA. All technical safeguards are implemented as code in this Terraform repository and continuously verified by `scripts/hipaa-encryption-audit.sh`.
+vocuone runs a clinical case-companion application (clinician web app + internal admin console + Bedrock-backed AI) processing PHI exclusively on HIPAA-eligible AWS services under a signed BAA. All technical safeguards are implemented as code in this Terraform repository and continuously verified by `scripts/hipaa-encryption-audit.sh`.
 
 | HIPAA Section | Status |
 |---|---|
@@ -27,7 +28,15 @@ vocuone runs a clinical case-companion application processing PHI exclusively on
 
 ## 2. Scope
 
-**In scope:** AWS account `499290259511`, us-east-1, stage + prod environments. Traffic path: client → CloudFront → API Gateway → ALB → ECS task → RDS / Bedrock / S3.
+**In scope:** AWS account `499290259511`, us-east-1, stage + prod environments. Three product surfaces share a single backend and data plane:
+
+| Surface | Audience | Frontend hosting | Backend |
+|---|---|---|---|
+| Clinician app | Doctors / care team | CloudFront + private S3 (OAC) | Shared ECS API |
+| Admin console | Internal operations | CloudFront + private S3 (OAC) | Shared ECS API |
+| AI / KB | (Server-side only) | n/a | Bedrock + Bedrock Agent + KB |
+
+Traffic path: client → CloudFront (frontend static assets) **and** client → API Gateway → ALB → ECS task → RDS / Bedrock / S3.
 
 **Out of scope:** Application code (separate review), endpoint security, AWS physical security (BAA-inherited).
 
@@ -36,23 +45,29 @@ vocuone runs a clinical case-companion application processing PHI exclusively on
 ## 3. Architecture
 
 ```
-[Browser] —TLS1.2+→ [CloudFront] —TLS→ [ALB :443]
-[Browser] —TLS1.2+→ [API Gateway] —HTTP*→ [ALB :80] —HTTP→ [ECS task]
-                                                              │
-       ┌──────────────────────────────────────────────────────┤
-       ▼                ▼                ▼                    ▼
-  [RDS Postgres]   [Bedrock KB]    [Secrets Mgr]      [CloudWatch Logs]
-   (CMK, TLS)      (SSE-S3)         (CMK)             (CMK, 7yr ret.)
-       │                                                      ▲
-       └──► Automated backups + AWS Backup vault (CMK)        │
-                                                              │
-[All API calls] ────────────────────► [CloudTrail S3 (CMK) + CWL tail]
+                                ┌─── CloudFront (clinician app)  ──► S3 (app bucket, private, OAC)
+[Clinician browser] ─TLS1.2+──┤
+                                └─── API Gateway ─HTTP*─► ALB:80 ──► ECS task ──┐
+                                                                                 │
+                                ┌─── CloudFront (admin console) ─► S3 (admin bucket, private, OAC)
+[Admin operator]    ─TLS1.2+──┤
+                                └─── API Gateway ─HTTP*─► ALB:80 ──► ECS task ──┤
+                                                                                 │
+                                                                                 ▼
+                            ┌────────────────────────────┬──────────────────────┴──────────────┐
+                            ▼                            ▼                                     ▼
+                      [RDS PostgreSQL]            [Bedrock KB + Agent]                  [CloudWatch Logs]
+                      (Multi-AZ, CMK, TLS)         (S3 KB buckets, SSE-S3)               (CMK, 7yr retention)
+                            │                                                                  ▲
+                            └──► AWS Backup vault (CMK) + automated snapshots                  │
+                                                                                              │
+[All AWS API calls] ─────────────────────────────────────► [CloudTrail S3 (CMK) + CWL tail]
 
 * API Gateway → ALB :80 hop is plaintext on AWS-internal network only;
   gated by WAF requiring X-Gateway-Secret header. Direct-to-ALB blocked.
 ```
 
-**Key properties:** every PHI store uses AES-256 (CMK where customer-managed); all public-facing TLS 1.2+; ECS tasks in private subnets with no public IP; RDS reachable only from ECS security group with `rds.force_ssl=1`; WAF gates the ALB; CloudTrail log file validation on.
+**Key properties:** every PHI store uses AES-256 (CMK where customer-managed); all public-facing TLS 1.2+; both frontend S3 buckets are private (CloudFront-only access via OAC) and contain only static JS/CSS — **no PHI ever lives in the frontend buckets**; ECS tasks in private subnets with no public IP; RDS reachable only from ECS security group with `rds.force_ssl=1`; WAF gates the ALB; CloudTrail log file validation on.
 
 ---
 
@@ -60,19 +75,22 @@ vocuone runs a clinical case-companion application processing PHI exclusively on
 
 Every service handling PHI is on the current AWS HIPAA Eligible Services Reference list.
 
-| Service | Purpose | PHI? |
+| Service | Purpose | PHI at rest? |
 |---|---|---|
-| EC2 + ECS + EBS | App compute | Transient |
+| EC2 + ECS + EBS | App compute (shared backend for both frontends) | Transient |
 | RDS PostgreSQL | Primary patient DB | Durable |
-| S3 (KB buckets) | KB documents | Durable |
+| S3 — KB buckets (3) | Bedrock KB documents | Durable |
+| S3 — Clinician app frontend | Static React build (JS/CSS only) | None |
+| S3 — Admin console frontend | Static React build (JS/CSS only) | None |
+| CloudFront (× 2 — app + admin) | Frontend CDN with TLS 1.2+ | In-flight |
 | Bedrock + Bedrock Agents | LLM inference, KB retrieval | In-flight + retrieval |
-| CloudFront + API Gateway + ALB + WAF | Public ingress | In-flight |
+| API Gateway + ALB + WAF | Public API ingress | In-flight |
 | Lambda | CodeDeploy hook, Synthetics canary | No |
 | CloudWatch + CloudTrail | Audit + logs | Durable (audit) |
-| Secrets Manager | DB creds | Creds only |
+| Secrets Manager | DB creds, frontend env configs | Creds only |
 | KMS | Encryption keys | No (keys) |
 | AWS Backup | Cross-service backup | Durable (snapshots) |
-| VPC, Route 53, ACM, Inspector, SSM, EventBridge, SNS, Synthetics, CodePipeline/Deploy/Build | Supporting | No (or N/A) |
+| VPC, Route 53, ACM, Inspector, SSM, EventBridge, SNS, Synthetics, CodePipeline/Deploy/Build | Supporting | No / N/A |
 
 Audit script confirms only HIPAA-eligible services are touched.
 
@@ -82,13 +100,16 @@ Audit script confirms only HIPAA-eligible services are touched.
 
 ### Encryption at rest (§164.312(a)(2)(iv))
 
-Every PHI store is AES-256 encrypted:
+Every PHI store is AES-256 encrypted; frontend buckets contain no PHI but are still encrypted:
 
 | Store | Key |
 |---|---|
 | RDS storage + Perf Insights + automated snapshots | CMK `alias/vocuone-${env}-rds` |
 | EBS — ECS root volumes | CMK `alias/vocuone-${env}-logs` |
-| S3 — Bedrock KB / ALB logs / pipeline / canary | AES-256 SSE-S3 (BAA-acceptable) |
+| S3 — Bedrock KB (3 buckets) | AES-256 SSE-S3 (BAA-acceptable) |
+| S3 — Clinician app frontend | AES-256 SSE-S3 |
+| S3 — Admin console frontend | AES-256 SSE-S3 |
+| S3 — ALB logs / pipeline artifacts / canary | AES-256 SSE-S3 |
 | S3 — CloudTrail | SSE-KMS, CMK `alias/vocuone-${env}-logs` |
 | CWL — app, Bedrock, RDS postgresql, VPC flow, CloudTrail | CMK `alias/vocuone-${env}-logs` (Bedrock has dedicated CMK) |
 | Secrets Manager (PHI-bearing) | CMK `alias/vocuone-${env}-secrets` |
@@ -101,9 +122,12 @@ All CMKs have key rotation enabled and a 30-day deletion window. Continuous veri
 
 | Path | Protection |
 |---|---|
-| Browser → CloudFront → ALB | TLS 1.2+ (ACM certs, `ELBSecurityPolicy-TLS13-1-2-2021-06`) |
+| Clinician browser → CloudFront (app) | TLS 1.2+ (ACM cert, redirect-to-https viewer policy) |
+| Admin operator → CloudFront (admin) | TLS 1.2+ (ACM cert, redirect-to-https viewer policy) |
+| CloudFront → S3 frontend buckets | TLS via Origin Access Control (OAC); buckets block all non-CloudFront access |
 | Client → API Gateway | TLS 1.2+ (AWS-managed) |
-| API Gateway → ALB :80 | HTTP on AWS regional network; WAF gate (X-Gateway-Secret); compensating control per AWS HIPAA reference architecture |
+| CloudFront / API Gateway → ALB :443 | TLS 1.2+ (`ELBSecurityPolicy-TLS13-1-2-2021-06`) |
+| API Gateway → ALB :80 | HTTP on AWS regional network; WAF gate (`X-Gateway-Secret`); compensating control per AWS HIPAA reference architecture |
 | ALB → ECS task | HTTP intra-VPC private subnet; SG-restricted; AWS-standard pattern |
 | ECS → RDS | TLS enforced (`rds.force_ssl=1`) |
 | ECS → AWS services (Bedrock, S3, Secrets Mgr, CloudWatch) | HTTPS by default (AWS SDK) |
@@ -111,6 +135,8 @@ All CMKs have key rotation enabled and a 30-day deletion window. Continuous veri
 ### Access control (§164.312(a)(1))
 
 - **Apps**: ECS task IAM roles with per-task credentials via IMDSv2; RDS IAM database auth + Secrets Manager-vended password (dual auth).
+- **Frontend buckets**: S3 bucket policy denies all access except the specific CloudFront distribution via OAC; no public access; `BlockPublicAccess` enforced at the bucket level.
+- **Admin console**: identical S3+CloudFront pattern as clinician app; admin authentication happens at the application layer (separate JWT scope) — infra-side controls are identical to the clinician app.
 - **CI/CD**: GitHub Actions OIDC `sts:AssumeRoleWithWebIdentity`, `sub`/`aud` claims pinned to repo + branch + environment. No long-lived CI keys.
 - **Operators**: SSM Session Manager (no SSH); MFA on console; CloudTrail logged.
 - **Service-to-service**: trust policies with `aws:SourceAccount` + `aws:SourceArn` confused-deputy guards.
@@ -119,11 +145,12 @@ All CMKs have key rotation enabled and a 30-day deletion window. Continuous veri
 
 - CloudTrail (all API events + KB S3 data events) → S3 (no expiry) + CWL tail (365d); log file validation on.
 - App/Bedrock/RDS audit log groups: CMK + 2557d (7yr) retention per §164.530(j)(2).
+- CloudFront access logs: optional, sent to a separate S3 bucket with SSE-S3 if enabled.
 - KMS key rotation, S3 versioning on KB buckets, RDS PITR.
 
 ### Authentication (§164.312(d))
 
-JWT for end users; OIDC for CI; IAM roles for services; MFA + SSM for operators.
+JWT for end users (separate scopes for clinician vs admin); OIDC for CI; IAM roles for services; MFA + SSM for operators.
 
 ---
 
@@ -157,7 +184,7 @@ AWS BAA signed via AWS Artifact, covering all HIPAA-eligible services in use. No
 
 - Policy: this document + Terraform code as source of truth
 - PHI-bearing audit logs: 2557d (7 years) retention — app, Bedrock, RDS postgres, CloudTrail S3
-- Non-PHI logs (VPC flow, CT tail): 365d
+- Non-PHI logs (VPC flow, CT tail, CloudFront access logs): 365d
 - Git history = full audit trail of infrastructure changes
 
 ---
@@ -170,7 +197,7 @@ AWS BAA signed via AWS Artifact, covering all HIPAA-eligible services in use. No
 - Backend HTTP 5xx (ALB target + ELB layer)
 - ECS CPU / memory
 - Bedrock latency p95, invocation throttling, errors
-- Synthetics canary failures
+- Synthetics canary failures (probes both CloudFront distributions + the API)
 - App-level AI call error rate (metric filter on `/ecs/${env}-app`)
 
 ---
@@ -186,7 +213,7 @@ AWS BAA signed via AWS Artifact, covering all HIPAA-eligible services in use. No
 | `alias/vocuone-${env}-backup` | AWS Backup vault |
 | `alias/vocuone-bedrock-invocations` | Bedrock invocation logs (account-wide singleton) |
 
-All CMKs: rotation enabled, 30-day deletion window.
+All CMKs: rotation enabled, 30-day deletion window. Frontend S3 buckets use SSE-S3 (AWS-managed) since they hold no PHI; HIPAA-acceptable under BAA.
 
 ---
 
