@@ -192,8 +192,60 @@ const archLines = [
   '* Both S3 frontend buckets contain only static JS/CSS — no PHI at rest.',
 ];
 
+// Visible placeholder for the rendered architecture diagram.
+// To replace: in Word, right-click the placeholder box → Cut, then
+// Insert → Picture → docs/architecture/architecture.png.
+const diagramPlaceholder = new Table({
+  width: { size: 9360, type: WidthType.DXA },
+  columnWidths: [9360],
+  rows: [
+    new TableRow({
+      children: [new TableCell({
+        width: { size: 9360, type: WidthType.DXA },
+        borders: {
+          top:    { style: BorderStyle.DASHED, size: 18, color: ACCENT },
+          bottom: { style: BorderStyle.DASHED, size: 18, color: ACCENT },
+          left:   { style: BorderStyle.DASHED, size: 18, color: ACCENT },
+          right:  { style: BorderStyle.DASHED, size: 18, color: ACCENT },
+        },
+        margins: { top: 600, bottom: 600, left: 240, right: 240 },
+        shading: { type: ShadingType.CLEAR, fill: 'EAF2FA' },
+        children: [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 },
+            children: [new TextRun({
+              text: '[ Insert architecture diagram here ]',
+              font: BODY_FONT, size: 28, bold: true, color: ACCENT,
+            })],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 0 },
+            children: [new TextRun({
+              text: 'Render via docs/ERASER-AI-PROMPT.md → eraser.io → export PNG → embed here.',
+              font: BODY_FONT, size: 20, italics: true, color: '5A7090',
+            })],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 80, after: 0 },
+            children: [new TextRun({
+              text: 'Source + exports kept in docs/architecture/.',
+              font: BODY_FONT, size: 20, italics: true, color: '5A7090',
+            })],
+          }),
+        ],
+      })],
+    }),
+  ],
+});
+
 const sec3 = [
   h1('3. Architecture'),
+  diagramPlaceholder,
+  spacer(),
+  p('ASCII fallback for environments that can\'t render the image:', { italics: true, color: '808080' }),
   ...archLines.map(l => mono(l, 16)),
   spacer(),
   p('Key properties: every PHI store uses AES-256 (CMK where customer-managed); all public-facing TLS 1.2+; ECS tasks in private subnets with no public IP; RDS reachable only from ECS security group with rds.force_ssl=1; WAF gates the ALB; CloudTrail log file validation on.'),

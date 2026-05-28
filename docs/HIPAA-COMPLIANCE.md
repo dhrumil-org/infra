@@ -44,6 +44,12 @@ Traffic path: client → CloudFront (frontend static assets) **and** client → 
 
 ## 3. Architecture
 
+> **Diagram placeholder** — render via the prompt in `docs/ERASER-AI-PROMPT.md`
+> and replace this placeholder with `docs/architecture/architecture.png`. The
+> ASCII fallback below is for environments that can't render the image.
+
+![Architecture diagram](architecture/architecture.png)
+
 ```
                                 ┌─── CloudFront (clinician app)  ──► S3 (app bucket, private, OAC)
 [Clinician browser] ─TLS1.2+──┤
