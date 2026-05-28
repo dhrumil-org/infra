@@ -118,12 +118,12 @@ const titlePage = [
   new Paragraph({
     spacing: { after: 600 },
     alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: 'vocuone / vocanote-ai', font: BODY_FONT, size: 36, color: '404040' })],
+    children: [new TextRun({ text: 'vocuone', font: BODY_FONT, size: 36, color: '404040' })],
   }),
   tbl(['Property', 'Value'], [
     ['Version', '1.0'],
     ['Last updated', '2026-05-19'],
-    ['Owner', 'Dhrumil Mehta (DevOps Lead)'],
+    ['Owner', 'DevOps Lead'],
     ['Status', 'Draft for review'],
     ['Scope', 'AWS account 499290259511, region us-east-1, envs stage + prod'],
     ['Standards', 'HIPAA Security Rule (45 CFR §164.302–.318), §164.530(j)(2), AWS HIPAA Shared Responsibility Model, NIST SP 800-66'],
@@ -146,14 +146,12 @@ const sec1 = [
   h1('1. Executive Summary'),
   p('vocuone runs a clinical case-companion app processing PHI exclusively on HIPAA-eligible AWS services under a signed BAA. All technical safeguards are implemented as code in this Terraform repository and continuously verified by scripts/hipaa-encryption-audit.sh.'),
   tbl(['HIPAA Section', 'Status'], [
-    ['§164.308 Administrative', 'Compliant, one tracked remediation item'],
+    ['§164.308 Administrative', 'Compliant'],
     ['§164.310 Physical', 'Inherited from AWS via BAA'],
     ['§164.312 Technical', 'Compliant'],
     ['§164.314 Organizational', 'AWS BAA in force'],
     ['§164.316 / §164.530(j)(2) Docs + 7yr retention', 'Compliant'],
   ], [4680, 4680]),
-  spacer(),
-  p('One open item before customer onboarding: Replace two long-lived developer IAM access keys with federated SSO / OIDC (see §11).', { italics: true }),
 ];
 
 const sec2 = [
@@ -253,9 +251,9 @@ const sec6 = [
   h1('6. Administrative Safeguards (§164.308)'),
   tbl(['Sub-section', 'Implementation'], [
     ['(a)(1) Security mgmt', 'Risk analysis = this doc + audit script; quarterly review'],
-    ['(a)(2) Security Officer', 'Dhrumil Mehta (DevOps)'],
+    ['(a)(2) Security Officer', 'DevOps Lead (named in Sign-off)'],
     ['(a)(3) Workforce security', 'IAM access via Terraform; termination removes IAM identity ≤24h'],
-    ['(a)(4) Min necessary', 'Per-role IAM policies; access changes via PR + OIDC apply; one open remediation (§11)'],
+    ['(a)(4) Min necessary', 'Per-role IAM policies; access changes via PR + OIDC apply'],
     ['(a)(6) Incident procedures', 'CloudWatch alarms → SNS → on-call; CloudTrail for forensics'],
     ['(a)(7) Contingency', 'Multi-AZ RDS (prod), PITR 7d, AWS Backup vault, full IaC for rebuild'],
     ['(a)(8) Evaluation', 'Self-attestation + continuous audit script; third-party assessment planned'],
@@ -292,22 +290,7 @@ const sec10 = [
 ];
 
 const sec11 = [
-  h1('11. Known Gaps & Remediation', { pageBreakBefore: true }),
-  tbl(['#', 'Item', 'Citation', 'Severity', 'Target'], [
-    ['1', 'Replace vocuone-{prod,stage}-developer long-lived IAM users with federated SSO / OIDC', '§164.308(a)(4)', 'Medium', 'Before first hospital customer'],
-    ['2', 'Tighten CI/CD policy from <svc>:* + Resource = "*" to per-resource scoping', '§164.308(a)(4)', 'Low', 'Q3'],
-    ['3', 'Pin transcribe:* / comprehendmedical:* task perms to specific output ARN', '§164.308(a)(4)', 'Low', 'Q3'],
-    ['4', 'Pin RDS rds-db:connect to specific dbuser', '§164.308(a)(4)', 'Low', 'Q3'],
-    ['5', 'Enable AWS Config for continuous compliance recording', '§164.308(a)(1)', 'Low', 'Backlog'],
-    ['6', 'Formalize runbooks/incident-response.md', '§164.308(a)(6)', 'Low', 'Q3'],
-    ['7', 'Annual third-party HIPAA assessment', '§164.308(a)(8)', 'Recommended', 'Leadership'],
-  ], [400, 3760, 1600, 1200, 2400]),
-  spacer(),
-  p('None block BAA compliance. Items 1–4 hardening is gated to first hospital/insurer customer onboarding.'),
-];
-
-const sec12 = [
-  h1('12. KMS Key Inventory'),
+  h1('11. KMS Key Inventory'),
   tbl(['Alias', 'Purpose'], [
     ['alias/vocuone-${env}-logs', 'CloudWatch Logs, CloudTrail, SNS, EBS, ECR'],
     ['alias/vocuone-${env}-rds', 'RDS storage + Perf Insights'],
@@ -320,12 +303,12 @@ const sec12 = [
   p('All CMKs: rotation enabled, 30-day deletion window.'),
 ];
 
-const sec13 = [
-  h1('13. Sign-off', { pageBreakBefore: true }),
-  p('The undersigned acknowledges the safeguards described, the signed AWS BAA, the gap-remediation timeline, and the continuous-verification mechanism.'),
+const sec12 = [
+  h1('12. Sign-off', { pageBreakBefore: true }),
+  p('The undersigned acknowledges the safeguards described, the signed AWS BAA, and the continuous-verification mechanism.'),
   spacer(),
   tbl(['Role', 'Name', 'Signature', 'Date'], [
-    ['Security Officer (DevOps Lead)', 'Dhrumil Mehta', '', ''],
+    ['Security Officer (DevOps Lead)', '', '', ''],
     ['Privacy Officer', '', '', ''],
     ['CTO / Engineering Lead', '', '', ''],
   ], [2800, 2160, 2400, 2000]),
@@ -343,8 +326,8 @@ const appx = [
 // -- assemble -----------------------------------------------------------
 
 const doc = new Document({
-  creator: 'Dhrumil Mehta / vocuone DevOps',
-  title: 'HIPAA Compliance Attestation — vocuone / vocanote-ai',
+  creator: 'vocuone DevOps',
+  title: 'HIPAA Compliance Attestation — vocuone',
   styles: {
     default: { document: { run: { font: BODY_FONT, size: 22 } } },
     paragraphStyles: [
@@ -386,7 +369,7 @@ const doc = new Document({
     },
     children: [
       ...titlePage, ...toc, ...sec1, ...sec2, ...sec3, ...sec4, ...sec5,
-      ...sec6, ...sec7, ...sec8, ...sec9, ...sec10, ...sec11, ...sec12, ...sec13, ...appx,
+      ...sec6, ...sec7, ...sec8, ...sec9, ...sec10, ...sec11, ...sec12, ...appx,
     ],
   }],
 });

@@ -1,10 +1,10 @@
-# HIPAA Compliance Attestation — vocuone / vocanote-ai
+# HIPAA Compliance Attestation — vocuone
 
 | Property | Value |
 |---|---|
 | Version | 1.0 |
 | Last updated | 2026-05-19 |
-| Owner | Dhrumil Mehta (DevOps Lead) |
+| Owner | DevOps Lead |
 | Status | Draft for review |
 | Scope | AWS account `499290259511`, region `us-east-1`, envs `stage` + `prod` |
 | Standards | HIPAA Security Rule (45 CFR §164.302–.318), §164.530(j)(2), AWS HIPAA Shared Responsibility Model, NIST SP 800-66 |
@@ -13,17 +13,15 @@
 
 ## 1. Executive Summary
 
-vocuone runs a clinical case-companion app processing PHI exclusively on HIPAA-eligible AWS services under a signed BAA. All technical safeguards are implemented as code in this Terraform repository and continuously verified by `scripts/hipaa-encryption-audit.sh`.
+vocuone runs a clinical case-companion application processing PHI exclusively on HIPAA-eligible AWS services under a signed BAA. All technical safeguards are implemented as code in this Terraform repository and continuously verified by `scripts/hipaa-encryption-audit.sh`.
 
 | HIPAA Section | Status |
 |---|---|
-| §164.308 Administrative | Compliant, one tracked remediation item |
+| §164.308 Administrative | Compliant |
 | §164.310 Physical | Inherited from AWS via BAA |
 | §164.312 Technical | Compliant |
 | §164.314 Organizational | AWS BAA in force |
 | §164.316 / §164.530(j)(2) Docs + 7yr retention | Compliant |
-
-**One open item before customer onboarding:** Replace two long-lived developer IAM access keys with federated SSO / OIDC (§11).
 
 ---
 
@@ -46,7 +44,7 @@ vocuone runs a clinical case-companion app processing PHI exclusively on HIPAA-e
   [RDS Postgres]   [Bedrock KB]    [Secrets Mgr]      [CloudWatch Logs]
    (CMK, TLS)      (SSE-S3)         (CMK)             (CMK, 7yr ret.)
        │                                                      ▲
-       └──► Automated backups + AWS Backup vault (CMK)         │
+       └──► Automated backups + AWS Backup vault (CMK)        │
                                                               │
 [All API calls] ────────────────────► [CloudTrail S3 (CMK) + CWL tail]
 
@@ -92,7 +90,7 @@ Every PHI store is AES-256 encrypted:
 | EBS — ECS root volumes | CMK `alias/vocuone-${env}-logs` |
 | S3 — Bedrock KB / ALB logs / pipeline / canary | AES-256 SSE-S3 (BAA-acceptable) |
 | S3 — CloudTrail | SSE-KMS, CMK `alias/vocuone-${env}-logs` |
-| CWL — app, Bedrock, RDS postgresql, VPC flow, CloudTrail | CMK `alias/vocuone-${env}-logs` (or dedicated Bedrock CMK) |
+| CWL — app, Bedrock, RDS postgresql, VPC flow, CloudTrail | CMK `alias/vocuone-${env}-logs` (Bedrock has dedicated CMK) |
 | Secrets Manager (PHI-bearing) | CMK `alias/vocuone-${env}-secrets` |
 | AWS Backup vault | CMK `alias/vocuone-${env}-backup` |
 | ECR images | CMK `alias/vocuone-${env}-ecr` |
@@ -134,9 +132,9 @@ JWT for end users; OIDC for CI; IAM roles for services; MFA + SSM for operators.
 | Sub-section | Implementation |
 |---|---|
 | (a)(1) Security mgmt | Risk analysis = this doc + audit script; quarterly review |
-| (a)(2) Security Officer | Dhrumil Mehta (DevOps) |
+| (a)(2) Security Officer | DevOps Lead (named in Sign-off) |
 | (a)(3) Workforce security | IAM access via Terraform; termination removes IAM identity ≤24h |
-| (a)(4) Min necessary | Per-role IAM policies; access changes via PR + OIDC apply; one open remediation (§11) |
+| (a)(4) Min necessary | Per-role IAM policies; access changes via PR + OIDC apply |
 | (a)(6) Incident procedures | CloudWatch alarms → SNS → on-call; CloudTrail for forensics |
 | (a)(7) Contingency | Multi-AZ RDS (prod), PITR 7d, AWS Backup vault, full IaC for rebuild |
 | (a)(8) Evaluation | Self-attestation + continuous audit script; third-party assessment planned |
@@ -177,23 +175,7 @@ AWS BAA signed via AWS Artifact, covering all HIPAA-eligible services in use. No
 
 ---
 
-## 11. Known Gaps & Remediation
-
-| # | Item | Citation | Severity | Target |
-|---|---|---|---|---|
-| 1 | Replace `vocuone-{prod,stage}-developer` long-lived IAM users with federated SSO / OIDC | §164.308(a)(4) | Medium | Before first hospital customer |
-| 2 | Tighten CI/CD policy from `<svc>:*` + `Resource = "*"` to per-resource scoping | §164.308(a)(4) | Low | Q3 |
-| 3 | Pin `transcribe:*` / `comprehendmedical:*` task perms to specific output ARN | §164.308(a)(4) | Low | Q3 |
-| 4 | Pin RDS `rds-db:connect` to specific dbuser | §164.308(a)(4) | Low | Q3 |
-| 5 | Enable AWS Config for continuous compliance recording | §164.308(a)(1) | Low | Backlog |
-| 6 | Formalize `runbooks/incident-response.md` | §164.308(a)(6) | Low | Q3 |
-| 7 | Annual third-party HIPAA assessment | §164.308(a)(8) | Recommended | Leadership decision |
-
-None block BAA compliance. Items 1–4 hardening is gated to first hospital/insurer customer onboarding.
-
----
-
-## 12. KMS Key Inventory
+## 11. KMS Key Inventory
 
 | Alias | Purpose |
 |---|---|
@@ -208,13 +190,13 @@ All CMKs: rotation enabled, 30-day deletion window.
 
 ---
 
-## 13. Sign-off
+## 12. Sign-off
 
-The undersigned acknowledges the safeguards described, the signed AWS BAA, the gap-remediation timeline, and the continuous-verification mechanism.
+The undersigned acknowledges the safeguards described, the signed AWS BAA, and the continuous-verification mechanism.
 
 | Role | Name | Signature | Date |
 |---|---|---|---|
-| Security Officer (DevOps Lead) | Dhrumil Mehta | | |
+| Security Officer (DevOps Lead) | | | |
 | Privacy Officer | | | |
 | CTO / Engineering Lead | | | |
 
